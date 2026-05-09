@@ -1,11 +1,11 @@
 import { useMeetingStore } from "@/store/useMeetingStore";
-import { BattlecardEvent, TranscriptEvent } from "@/types";
+import { BattlecardEvent } from "@/types";
 
 const mockTranscriptSequence = [
   "Hola, gracias por reunirse conmigo hoy.",
   "Estuvimos revisando su propuesta y nos parece interesante.",
   "Sin embargo, queríamos entender mejor cómo se comparan.",
-  "Actualmente también estamos evaluando a HubSpot.", // Trigger point
+  "Actualmente también estamos evaluando a HubSpot.",
   "¿Nos podrían contar qué ventajas tienen frente a ellos?",
 ];
 
@@ -16,71 +16,89 @@ const mockHubspotBattlecard: BattlecardEvent = {
   confidence: 0.96,
   data: {
     key_differentiator: "Nuestro motor de automatización no cobra por acción extra.",
-    suggested_response: "Muchos equipos migran desde HubSpot cuando los workflows se vuelven más complejos.",
+    suggested_response:
+      "Muchos equipos migran desde HubSpot cuando los workflows se vuelven más complejos.",
     recommended_question: "¿Qué limitaciones han encontrado con HubSpot hasta ahora?",
     weaknesses: [
       "Escalabilidad limitada a partir de 500 usuarios",
-      "Add-ons muy costosos para funciones básicas"
-    ]
+      "Add-ons muy costosos para funciones básicas",
+    ],
   },
   client_context: {
     name: "Empresa LatAm",
     industry: "SaaS B2B",
-    deal_size: "$45,000"
+    deal_size: "$45,000",
   },
-  timestamp: Date.now()
+  timestamp: Date.now(),
 };
 
 export function simulateMeetingFlow() {
-  const { addTranscript, addBattlecard, clearMeeting, setIsRecording, setIsConnected } = useMeetingStore.getState();
-  
+  const {
+    addTranscript,
+    addBattlecard,
+    clearMeeting,
+    setIsRecording,
+    setIsConnected,
+    setActiveClient,
+    setCompetitorPreview,
+    bumpConnectionEpoch,
+  } = useMeetingStore.getState();
+
   clearMeeting();
   setIsRecording(true);
   setIsConnected(true);
+  bumpConnectionEpoch();
+  setActiveClient({
+    name: mockHubspotBattlecard.client_context.name,
+    industry: mockHubspotBattlecard.client_context.industry,
+    deal_size: mockHubspotBattlecard.client_context.deal_size,
+  });
 
   let currentStep = 0;
-  
+
   const interval = setInterval(() => {
     if (currentStep >= mockTranscriptSequence.length) {
       clearInterval(interval);
       setIsRecording(false);
+      setIsConnected(false);
       return;
     }
 
     const text = mockTranscriptSequence[currentStep];
     const transcriptId = `tr-mock-${currentStep}`;
-    
-    // Simular transcripción parcial
+
     addTranscript({
       type: "transcript",
       id: transcriptId,
-      text: text.substring(0, text.length / 2) + "...",
+      text: `${text.substring(0, Math.floor(text.length / 2))}…`,
       isPartial: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
-    // Simular transcripción completa después de 500ms
     setTimeout(() => {
       addTranscript({
         type: "transcript",
         id: transcriptId,
-        text: text,
+        text,
         isPartial: false,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      // Si es el momento del trigger, lanzar la battlecard
       if (text.includes("HubSpot")) {
+        setCompetitorPreview("HubSpot");
         setTimeout(() => {
           addBattlecard({
             ...mockHubspotBattlecard,
-            timestamp: Date.now()
+            id: `bc-mock-${Date.now()}`,
+            timestamp: Date.now(),
           });
-        }, 800); // Latencia simulada de LangChain + Chroma
+          setTimeout(() => {
+            setCompetitorPreview(null);
+          }, 400);
+        }, 650);
       }
-      
-    }, 500);
+    }, 450);
 
     currentStep++;
-  }, 3000); // Cada 3 segundos una nueva frase
+  }, 2800);
 }
