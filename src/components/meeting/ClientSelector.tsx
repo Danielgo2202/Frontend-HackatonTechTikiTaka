@@ -80,8 +80,8 @@ export function ClientSelector({
 
   return (
     <div ref={wrapperRef} className="relative">
-      <div className="flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0B1220]/90 px-3 py-2">
-        <Search className="h-4 w-4 text-[#64748B]" />
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-xl">
+        <Search className="h-4 w-4 shrink-0 text-slate-500" />
         <input
           value={inputValue}
           onChange={(e) => {
@@ -112,7 +112,7 @@ export function ClientSelector({
             }
           }}
           placeholder="Buscar cliente..."
-          className="w-full bg-transparent text-sm text-[#E2E8F0] placeholder:text-[#64748B] outline-none"
+          className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-500 outline-none"
         />
         {selectedClient && (
           <button
@@ -123,7 +123,7 @@ export function ClientSelector({
               setItems([]);
               setOpen(false);
             }}
-            className="rounded-md p-1 text-[#64748B] hover:text-[#E2E8F0] hover:bg-[rgba(255,255,255,0.06)]"
+            className="rounded-md p-1 text-slate-500 hover:bg-white/10 hover:text-slate-200"
             title="Quitar cliente"
             aria-label="Quitar cliente"
           >
@@ -133,13 +133,13 @@ export function ClientSelector({
       </div>
 
       {showList && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0B1220]/95 shadow-[0_20px_40px_rgba(0,0,0,0.45)]">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950/90 shadow-2xl shadow-black/50 backdrop-blur-xl">
           {loading ? (
-            <p className="px-3 py-2.5 text-xs text-[#64748B]">Buscando...</p>
+            <p className="px-3 py-2.5 text-xs text-slate-500">Buscando...</p>
           ) : error ? (
-            <p className="px-3 py-2.5 text-xs text-[#FCA5A5]">{error}</p>
+            <p className="px-3 py-2.5 text-xs text-red-300">{error}</p>
           ) : items.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-[#64748B]">
+            <p className="px-3 py-2.5 text-xs text-slate-500">
               {touched ? "No clients found" : "Empieza a escribir para buscar clientes"}
             </p>
           ) : (
@@ -155,12 +155,12 @@ export function ClientSelector({
                     }}
                     className={`w-full px-3 py-2 text-left transition-colors ${
                       idx === highlightIndex
-                        ? "bg-[rgba(99,102,241,0.14)]"
-                        : "hover:bg-[rgba(255,255,255,0.04)]"
+                        ? "bg-indigo-500/15"
+                        : "hover:bg-white/5"
                     }`}
                   >
-                    <p className="text-sm text-[#E2E8F0] truncate">{item.name}</p>
-                    <p className="text-xs text-[#64748B] truncate">{item.industry || "Sin industria"}</p>
+                    <p className="truncate text-sm text-slate-100">{item.name}</p>
+                    <p className="truncate text-xs text-slate-500">{item.industry || "Sin industria"}</p>
                   </button>
                 </li>
               ))}

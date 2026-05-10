@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import type { BattlecardEvent, TranscriptEvent, WebSocketMessage } from "@/types";
 import { ClientSelector } from "@/components/meeting/ClientSelector";
+import { simulateMeetingFlow } from "@/lib/mockData";
+import { logBattlecard, DEBUG_BATTLECARD } from "@/lib/battlecardDebug";
+import {
+  coerceBattlecardType,
+  looksLikeBattlecardPayload,
+  normalizeBattlecardPayload,
+  unwrapBattlecardRoot,
+} from "@/lib/normalizeBattlecard";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim() || undefined;
 const API_URL =
@@ -29,27 +37,54 @@ function pickAudioMime(): string {
   return "audio/webm";
 }
 
+function parseTranscriptMessage(msg: Record<string, unknown>): TranscriptEvent {
+  const id = typeof msg.id === "string" ? msg.id : crypto.randomUUID();
+  const text = typeof msg.text === "string" ? msg.text : "";
+  let isPartial = false;
+  if (typeof msg.isPartial === "boolean") {
+    isPartial = msg.isPartial;
+  } else if (typeof msg.is_final === "boolean") {
+    isPartial = !msg.is_final;
+  }
+  const timestamp = typeof msg.timestamp === "number" ? msg.timestamp : Date.now();
+  return { type: "transcript", id, text, isPartial, timestamp };
+}
+
 function parseServerMessage(raw: string): WebSocketMessage | null {
   try {
     const msg = JSON.parse(raw) as Record<string, unknown>;
-    if (msg.type === "battlecard") {
-      const b = msg as unknown as BattlecardEvent;
-      return {
-        ...b,
-        timestamp: b.timestamp ?? Date.now(),
-      };
-    }
     if (msg.type === "transcript") {
-      const t = msg as unknown as TranscriptEvent;
-      return {
-        ...t,
-        id: t.id ?? crypto.randomUUID(),
-        isPartial: t.isPartial ?? false,
-        timestamp: t.timestamp ?? Date.now(),
-      };
+      return parseTranscriptMessage(msg);
     }
     if (msg.type === "client_context") {
       return msg as unknown as WebSocketMessage;
+    }
+
+    const lifted = unwrapBattlecardRoot(msg);
+    const candidate = coerceBattlecardType(lifted);
+    const candType = candidate.type ?? candidate.event;
+    const candTypeStr = typeof candType === "string" ? candType.toLowerCase() : "";
+    const isBattlecardMessage =
+      candTypeStr === "battlecard" || looksLikeBattlecardPayload(candidate);
+
+    if (isBattlecardMessage) {
+      if (DEBUG_BATTLECARD) {
+        logBattlecard("parseServerMessage · candidato", {
+          msgType: msg.type,
+          liftedKeys: Object.keys(lifted).join(", "),
+          candidateType: candidate.type,
+          topLevelKeys: Object.keys(msg).join(", "),
+          hasChartDataRoot:
+            candidate.chart_data != null || candidate.chartData != null,
+          hasMetricsRoot: candidate.metrics != null,
+          looksLike: looksLikeBattlecardPayload(candidate),
+          hint:
+            candidate.chart_data == null && candidate.metrics == null
+              ? "El mensaje no trae chart_data ni metrics en raíz; el backend debe incluirlos en el mismo frame WS."
+              : undefined,
+        });
+      }
+      return normalizeBattlecardPayload(candidate);
     }
   } catch {
     /* ignore non-JSON */
@@ -62,6 +97,8 @@ export function AudioCapture() {
     isRecording,
     isConnected,
     activeClient,
+    battlecards,
+    transcripts,
     connectionEpoch,
     setIsRecording,
     setIsConnected,
@@ -69,6 +106,11 @@ export function AudioCapture() {
     addTranscript,
     addBattlecard,
   } = useMeetingStore();
+
+  const [detectionHistory, setDetectionHistory] = useState<
+    { id: string; competitor: string; at: number }[]
+  >([]);
+  const seenBattleIds = useRef(new Set<string>());
 
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -153,6 +195,11 @@ export function AudioCapture() {
           reason: ev.reason,
           wasClean: ev.wasClean,
         });
+        if (ev.code === 1012) {
+          console.warn(
+            "[Close Pilot][WS][debug] code 1012: el servidor cerró el WebSocket (reinicio, límite o policy). El audio ya no se envía hasta una nueva sesión / reconexión.",
+          );
+        }
       }
       setIsConnected(false);
       socketRef.current = null;
@@ -160,13 +207,25 @@ export function AudioCapture() {
 
     ws.onerror = (ev: Event) => {
       const sock = ev.target instanceof WebSocket ? ev.target : null;
-      console.error("[Close Pilot][WS] onerror — evento completo:", {
-        type: ev.type,
-        timeStamp: ev.timeStamp,
-        url: sock?.url,
-        readyState: sock?.readyState,
-        event: ev,
-      });
+      const state = sock?.readyState;
+      const stateLabel =
+        state === WebSocket.CONNECTING
+          ? "CONNECTING"
+          : state === WebSocket.OPEN
+            ? "OPEN"
+            : state === WebSocket.CLOSING
+              ? "CLOSING"
+              : state === WebSocket.CLOSED
+                ? "CLOSED"
+                : String(state);
+      // El ErrorEvent de WebSocket en el DOM no expone detalles (mensaje vacío / {}). No usar console.error:
+      // Next/React Dev overlay lo muestra como fallo de la app aunque sea red/backend caído.
+      const msg = `[Close Pilot][WS] socket error — url: ${sock?.url ?? WS_URL} · readyState: ${stateLabel}`;
+      if (DEBUG_CAPTURE) {
+        console.warn(msg, { type: ev.type, timeStamp: ev.timeStamp });
+      } else {
+        console.warn(msg);
+      }
       setIsConnected(false);
     };
 
@@ -215,6 +274,16 @@ export function AudioCapture() {
           console.info("[Close Pilot][WS][debug] → addBattlecard", {
             id: newCard.id,
             competitor: newCard.competitor,
+          });
+        }
+        if (DEBUG_BATTLECARD) {
+          const d = newCard.data;
+          logBattlecard("addBattlecard · hacia store", {
+            id: newCard.id,
+            competitor: newCard.competitor,
+            dataKeys: d ? Object.keys(d) : [],
+            chart_data: d?.chart_data,
+            metrics: d?.metrics,
           });
         }
         addBattlecard(newCard);
@@ -422,11 +491,10 @@ export function AudioCapture() {
 
         if (ws?.readyState === WebSocket.OPEN) {
           if (DEBUG_CAPTURE) {
-            console.info("[Close Pilot][audio][debug] enviando chunk", {
-              seq,
-              bytes: e.data.size,
-              blobType: e.data.type || "(sin type)",
-            });
+            const bt = e.data.type || "(sin type)";
+            console.info(
+              `[Close Pilot][audio][debug] enviando chunk seq=${seq} bytes=${e.data.size} blobType=${bt}`,
+            );
           }
           ws.send(e.data);
         } else if (DEBUG_CAPTURE) {
@@ -482,88 +550,182 @@ export function AudioCapture() {
     };
   }, [stopCapture]);
 
-  const clientName = activeClient?.name ?? "—";
-  const industry = activeClient?.industry ?? "Sin contexto activo";
+  useEffect(() => {
+    if (battlecards.length === 0 && transcripts.length === 0) {
+      seenBattleIds.current.clear();
+      setDetectionHistory([]);
+    }
+  }, [battlecards.length, transcripts.length]);
+
+  useEffect(() => {
+    for (const b of battlecards) {
+      const id = b.id;
+      if (!id || seenBattleIds.current.has(id)) continue;
+      seenBattleIds.current.add(id);
+      setDetectionHistory((h) =>
+        [{ id, competitor: b.competitor, at: b.timestamp ?? Date.now() }, ...h].slice(0, 5),
+      );
+    }
+  }, [battlecards]);
+
+  const activeClientLabel = activeClient?.name?.trim() || "Sin cliente activo";
+
+  const pillTone = (i: number) => {
+    const tones = [
+      "border-indigo-500/35 bg-indigo-500/15 text-indigo-200",
+      "border-emerald-500/35 bg-emerald-500/15 text-emerald-200",
+      "border-amber-500/35 bg-amber-500/15 text-amber-200",
+      "border-fuchsia-500/35 bg-fuchsia-500/15 text-fuchsia-200",
+    ];
+    return tones[i % tones.length];
+  };
 
   return (
-    <motion.header
+    <motion.aside
       key={connectionEpoch}
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-3.5 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#111827]/90 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]"
+      className="flex h-full min-h-0 w-[240px] shrink-0 flex-col border-r border-white/10 bg-white/[0.06] backdrop-blur-2xl"
     >
-      <div className="min-w-0 flex-1 flex items-start gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-[#F1F5F9] truncate tracking-tight">{clientName}</p>
-          <p className="text-xs text-[#64748B] truncate mt-0.5">{industry}</p>
+      <div className="shrink-0 border-b border-white/10 px-4 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold tracking-tight text-slate-100">Close Pilot</span>
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-slate-300 opacity-50" />
+            <span className="relative h-2 w-2 rounded-full bg-slate-200" />
+          </span>
         </div>
+        <p className="mt-1 text-[10px] text-slate-500">AI Sales Copilot</p>
       </div>
 
-      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-        <div className="flex items-center gap-2 text-xs text-[#64748B]">
-          <span className="relative flex h-2 w-2">
-            {isConnected ? (
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="rounded-xl border border-white/10 bg-white/[0.08] p-3 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                {isConnected ? (
+                  <>
+                    <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-emerald-400 opacity-50" />
+                    <span className="relative h-2 w-2 rounded-full bg-emerald-400" />
+                  </>
+                ) : (
+                  <span className="relative h-2 w-2 rounded-full bg-slate-500" />
+                )}
+              </span>
+              <span className="text-xs font-medium text-slate-200">
+                {isConnected ? "En vivo" : "Desconectado"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-end justify-center gap-1 py-1" aria-hidden>
+            {[0, 120, 240, 80].map((delayMs, i) => (
+              <span
+                key={i}
+                className={`w-[3px] rounded-full bg-emerald-400/90 ${
+                  isRecording ? "animate-bounce" : ""
+                }`}
+                style={{
+                  height: isRecording ? 14 : 5,
+                  animationDelay: `${delayMs}ms`,
+                  animationDuration: "0.85s",
+                }}
+              />
+            ))}
+          </div>
+
+          <p className="mt-2 truncate text-center text-xs font-medium text-slate-300" title={activeClientLabel}>
+            {activeClientLabel}
+          </p>
+
+          <button
+            type="button"
+            onClick={toggleMic}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-white/10 hover:text-white"
+            title={
+              WS_URL
+                ? isRecording
+                  ? "Detener captura"
+                  : "Pantalla + micrófono mezclados (audio/webm al servidor)"
+                : "Define NEXT_PUBLIC_WS_URL para enviar audio al backend"
+            }
+            aria-pressed={isRecording}
+          >
+            {isRecording ? (
               <>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-35" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
+                <Mic className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
+                Detener captura
               </>
             ) : (
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#64748B]/80" />
+              <>
+                <MicOff className="h-4 w-4" strokeWidth={1.75} />
+                Iniciar captura
+              </>
             )}
-          </span>
-          <span className="hidden sm:inline">{isConnected ? "Conectado" : "Sin conexión"}</span>
+          </button>
         </div>
 
+        <div className="mt-3">
+          <ClientSelector
+            apiBaseUrl={API_URL}
+            selectedClient={activeClient}
+            onSelect={(client) => {
+              setActiveClient(client);
+              sendClientSelection(client.id ?? null);
+            }}
+            onClear={() => {
+              setActiveClient(null);
+              sendClientSelection(null);
+            }}
+          />
+        </div>
+
+        <div className="mt-5">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Historial de sesión
+          </p>
+          <div className="max-h-[132px] overflow-y-auto pr-0.5">
+            {detectionHistory.length === 0 ? (
+              <p className="py-3 text-center text-[11px] text-slate-600">Sin detecciones aún</p>
+            ) : (
+              <ul className="space-y-2">
+                {detectionHistory.map((row, idx) => (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-2 text-[11px] text-slate-400"
+                  >
+                    <span className="min-w-0 truncate font-medium text-slate-300">{row.competitor}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      {new Date(row.at).toLocaleTimeString("es", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${pillTone(idx)}`}
+                    >
+                      #{idx + 1}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-white/10 px-4 py-3">
+        <p className="text-center text-[10px] text-slate-500">v0.1 · Hackathon GTM</p>
         <button
           type="button"
-          onClick={toggleMic}
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[#64748B] hover:text-[#F1F5F9] hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-transparent hover:border-[rgba(255,255,255,0.06)]"
-          title={
-            WS_URL
-              ? isRecording
-                ? "Detener captura"
-                : "Pantalla + micrófono mezclados (audio/webm al servidor)"
-              : "Define NEXT_PUBLIC_WS_URL para enviar audio al backend"
-          }
-          aria-pressed={isRecording}
+          onClick={simulateMeetingFlow}
+          disabled={isRecording}
+          className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.05] py-2 text-[10px] text-slate-500 transition-colors hover:bg-white/10 hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {isRecording ? (
-            <>
-              <div className="flex h-6 items-end justify-center gap-0.5 px-0.5" aria-hidden>
-                {[12, 16, 13, 18, 14].map((h, i) => (
-                  <span
-                    key={i}
-                    className="cp-wave-bar w-[3px] rounded-full bg-[#10B981]"
-                    style={{ height: h }}
-                  />
-                ))}
-              </div>
-              <Mic className="w-[18px] h-[18px] text-[#10B981]" strokeWidth={1.75} />
-              <span className="text-xs font-medium text-[#10B981] hidden sm:inline">En vivo</span>
-            </>
-          ) : (
-            <>
-              <MicOff className="w-[18px] h-[18px]" strokeWidth={1.75} />
-              <span className="text-xs font-medium hidden sm:inline">Capturar audio</span>
-            </>
-          )}
+          Demo simulada (sin backend)
         </button>
       </div>
-      <div className="w-full sm:w-[360px]">
-        <ClientSelector
-          apiBaseUrl={API_URL}
-          selectedClient={activeClient}
-          onSelect={(client) => {
-            setActiveClient(client);
-            sendClientSelection(client.id ?? null);
-          }}
-          onClear={() => {
-            setActiveClient(null);
-            sendClientSelection(null);
-          }}
-        />
-      </div>
-    </motion.header>
+    </motion.aside>
   );
 }
