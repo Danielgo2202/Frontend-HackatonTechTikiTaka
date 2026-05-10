@@ -124,3 +124,9 @@ body {
 .cp-wave-bar:nth-child(5) {
   animation-delay: 0.2s;
 }
+
+/* Top fade for transcript viewport */
+.transcript-fade-top {
+  mask-image: linear-gradient(to bottom, transparent, black 30%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%);
+}

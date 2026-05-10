@@ -19,14 +19,34 @@ const mockHubspotBattlecard: BattlecardEvent = {
     suggested_response:
       "Muchos equipos migran desde HubSpot cuando los workflows se vuelven más complejos.",
     recommended_question: "¿Qué limitaciones han encontrado con HubSpot hasta ahora?",
+    strengths: [
+      "Marca reconocida en inbound marketing",
+      "Free tier para equipos pequeños",
+    ],
     weaknesses: [
       "Escalabilidad limitada a partir de 500 usuarios",
       "Add-ons muy costosos para funciones básicas",
     ],
+    charts: [
+      {
+        kind: "sparkline",
+        title: "Win rate vs trimestre",
+        values: [52, 53, 55, 56, 58],
+        compare_values: [48, 49, 50, 51, 52],
+        unit: "%",
+      },
+      {
+        kind: "bars",
+        title: "Posicionamiento percibido",
+        labels: ["Nosotros", "HubSpot"],
+        values: [72, 58],
+        unit: "%",
+      },
+    ],
   },
   client_context: {
     name: "Empresa LatAm",
-    industry: "SaaS B2B",
+    industry: "Enterprise · SaaS B2B",
     deal_size: "$45,000",
   },
   timestamp: Date.now(),
