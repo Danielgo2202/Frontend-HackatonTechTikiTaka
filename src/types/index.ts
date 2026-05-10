@@ -1,7 +1,10 @@
 export interface ClientContext {
+  id?: string;
   name: string;
-  industry: string;
-  deal_size: string;
+  industry?: string | null;
+  deal_size?: string | null;
+  pain_points?: string[];
+  active?: boolean;
 }
 
 export interface BattlecardData {
@@ -17,7 +20,7 @@ export interface BattlecardEvent {
   competitor: string;
   confidence: number;
   data: BattlecardData;
-  client_context: ClientContext;
+  client_context?: ClientContext | null;
   timestamp: number;
 }
 
@@ -29,4 +32,9 @@ export interface TranscriptEvent {
   timestamp: number;
 }
 
-export type WebSocketMessage = BattlecardEvent | TranscriptEvent;
+export interface ClientContextEvent {
+  type: "client_context";
+  client_context: ClientContext | null;
+}
+
+export type WebSocketMessage = BattlecardEvent | TranscriptEvent | ClientContextEvent;

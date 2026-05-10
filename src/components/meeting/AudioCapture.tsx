@@ -5,8 +5,12 @@ import { Mic, MicOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import type { BattlecardEvent, TranscriptEvent, WebSocketMessage } from "@/types";
+import { ClientSelector } from "@/components/meeting/ClientSelector";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim() || undefined;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  (WS_URL ? WS_URL.replace(/^ws/i, "http").replace(/\/ws$/, "") : undefined);
 
 /** Logs detallados de audio/WS solo en dev (bundle de producción sin ruido) */
 const DEBUG_CAPTURE = process.env.NODE_ENV === "development";
@@ -45,6 +49,9 @@ function parseServerMessage(raw: string): WebSocketMessage | null {
         timestamp: t.timestamp ?? Date.now(),
       };
     }
+    if (msg.type === "client_context") {
+      return msg as WebSocketMessage;
+    }
   } catch {
     /* ignore non-JSON */
   }
@@ -59,6 +66,7 @@ export function AudioCapture() {
     connectionEpoch,
     setIsRecording,
     setIsConnected,
+    setActiveClient,
     addTranscript,
     addBattlecard,
   } = useMeetingStore();
@@ -133,6 +141,10 @@ export function AudioCapture() {
       }
       setIsConnected(true);
       useMeetingStore.getState().bumpConnectionEpoch();
+      const selectedId = useMeetingStore.getState().activeClient?.id;
+      if (selectedId) {
+        ws.send(JSON.stringify({ cmd: "set_client", client_id: selectedId }));
+      }
     };
 
     ws.onclose = (ev: CloseEvent) => {
@@ -202,11 +214,26 @@ export function AudioCapture() {
         addTranscript(parsed);
       } else if (parsed.type === "battlecard") {
         addBattlecard(parsed);
+      } else if (parsed.type === "client_context") {
+        setActiveClient(parsed.client_context);
       }
     };
 
     return ws;
-  }, [addBattlecard, addTranscript, setIsConnected]);
+  }, [addBattlecard, addTranscript, setActiveClient, setIsConnected]);
+
+  const sendClientSelection = useCallback(
+    (clientId: string | null) => {
+      const ws = socketRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (clientId) {
+        ws.send(JSON.stringify({ cmd: "set_client", client_id: clientId }));
+      } else {
+        ws.send(JSON.stringify({ cmd: "clear_client" }));
+      }
+    },
+    [],
+  );
 
   const startCapture = useCallback(async () => {
     if (isRecording) return;
@@ -518,6 +545,20 @@ export function AudioCapture() {
             </>
           )}
         </button>
+      </div>
+      <div className="w-full sm:w-[360px]">
+        <ClientSelector
+          apiBaseUrl={API_URL}
+          selectedClient={activeClient}
+          onSelect={(client) => {
+            setActiveClient(client);
+            sendClientSelection(client.id ?? null);
+          }}
+          onClear={() => {
+            setActiveClient(null);
+            sendClientSelection(null);
+          }}
+        />
       </div>
     </motion.header>
   );
