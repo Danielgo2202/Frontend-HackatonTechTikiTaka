@@ -58,14 +58,22 @@ export const useMeetingStore = create<MeetingState>((set) => ({
 
   addBattlecard: (battlecard) =>
     set((state) => {
-      const alreadyExists = state.battlecards.some(
-        (b) => b.id === battlecard.id || b.competitor === battlecard.competitor
-      );
-      if (alreadyExists) return state;
+      const nextClient =
+        battlecard.client_context != null
+          ? {
+              id: state.activeClient?.id,
+              name: battlecard.client_context.name,
+              industry:
+                battlecard.client_context.industry ?? state.activeClient?.industry ?? null,
+              deal_size:
+                battlecard.client_context.deal_size ?? state.activeClient?.deal_size ?? null,
+              pain_points: state.activeClient?.pain_points,
+            }
+          : state.activeClient;
 
       return {
-        battlecards: [battlecard, ...state.battlecards],
-        activeClient: battlecard.client_context ?? state.activeClient,
+        battlecards: [battlecard, ...state.battlecards].slice(0, 3),
+        activeClient: nextClient,
       };
     }),
 

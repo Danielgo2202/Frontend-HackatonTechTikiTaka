@@ -1,65 +1,91 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BattlecardEvent } from "@/types";
+import type { BattlecardEvent } from "@/types";
 
 interface BattlecardProps {
   card: BattlecardEvent;
 }
 
 export function Battlecard({ card }: BattlecardProps) {
-  const { data, competitor, confidence } = card;
-  const confidenceOpacity = 0.35 + Math.min(1, Math.max(0, confidence)) * 0.65;
+  const { data, competitor, confidence, client_context } = card;
+  const accentColor = confidence > 0.85 ? "#10B981" : "#F59E0B";
+  const pct = Math.round(confidence * 100);
+
+  const footerParts = [
+    client_context?.name,
+    client_context?.industry,
+    client_context?.deal_size,
+  ].filter((p): p is string => Boolean(p && String(p).trim()));
 
   return (
     <motion.article
-      layout
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#0f172a]/90 p-4 shadow-[0_2px_16px_rgba(0,0,0,0.25)]"
+      initial={{ opacity: 0, x: 60, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="mb-3 flex overflow-hidden rounded-xl border border-white/5 bg-[#111827] shadow-lg shadow-black/30 last:mb-0"
     >
-      <div className="flex items-start justify-between gap-2 mb-2.5">
-        <div className="min-w-0">
-          <p
-            className="text-[10px] text-[#6366F1] mb-0.5"
-            style={{ opacity: confidenceOpacity }}
-          >
-            {Math.round(confidence * 100)}% confianza
-          </p>
-          <h3 className="text-base font-semibold text-[#F1F5F9] tracking-tight truncate">
+      <div
+        className="w-[3px] shrink-0 self-stretch"
+        style={{ backgroundColor: accentColor }}
+        aria-hidden
+      />
+
+      <div className="min-w-0 flex-1 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-lg font-bold uppercase tracking-tight text-[#F1F5F9]">
             {competitor}
           </h3>
-        </div>
-      </div>
-
-      <div className="space-y-2.5">
-        <p className="text-[13px] leading-relaxed text-[#E2E8F0]">{data.key_differentiator}</p>
-
-        <div className="h-px bg-[rgba(255,255,255,0.06)]" />
-
-        <div>
-          <p className="text-[11px] text-[#64748B] mb-1.5">Respuesta sugerida</p>
-          <p className="text-[13px] leading-relaxed text-[#94A3B8] italic">&ldquo;{data.suggested_response}&rdquo;</p>
+          <span className="shrink-0 text-sm tabular-nums text-[#94A3B8]">{pct}%</span>
         </div>
 
-        <div>
-          <p className="text-[11px] text-[#64748B] mb-1.5">Pregunta</p>
-          <p className="text-[13px] leading-relaxed text-[#CBD5E1]">{data.recommended_question}</p>
+        <div className="mt-4 space-y-3">
+          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
+              DIFERENCIADOR
+            </p>
+            <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug text-[#F1F5F9]">
+              {data.key_differentiator}
+            </p>
+          </section>
+
+          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
+              RESPUESTA SUGERIDA
+            </p>
+            <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug text-[#818CF8]">
+              {data.suggested_response}
+            </p>
+          </section>
+
+          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
+              PREGUNTA RECOMENDADA
+            </p>
+            <p className="mt-1.5 line-clamp-2 text-sm italic leading-snug text-[#94A3B8]">
+              {data.recommended_question}
+            </p>
+          </section>
         </div>
 
         {data.weaknesses.length > 0 && (
-          <>
-            <div className="h-px bg-[rgba(255,255,255,0.06)]" />
-            <div className="space-y-1.5">
-              {data.weaknesses.map((w, idx) => (
-                <p key={idx} className="text-[12px] leading-relaxed text-[#94A3B8] pl-3 border-l border-[rgba(99,102,241,0.3)]">
-                  {w}
-                </p>
-              ))}
-            </div>
-          </>
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {data.weaknesses.map((w, idx) => (
+              <span
+                key={`${w}-${idx}`}
+                className="rounded-full bg-red-950 px-2 py-0.5 text-[11px] text-red-400"
+              >
+                {w}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {footerParts.length > 0 && (
+          <p className="mt-4 text-[10px] leading-relaxed text-[#475569]">
+            {footerParts.join(" · ")}
+          </p>
         )}
       </div>
     </motion.article>

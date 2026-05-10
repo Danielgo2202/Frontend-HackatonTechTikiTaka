@@ -14,14 +14,15 @@ export interface BattlecardData {
   weaknesses: string[];
 }
 
+/** WebSocket payload shape; `id` / `timestamp` may be added client-side when missing */
 export interface BattlecardEvent {
   type: "battlecard";
-  id: string; // Unique ID for React keys
+  id?: string;
   competitor: string;
   confidence: number;
   data: BattlecardData;
   client_context?: ClientContext | null;
-  timestamp: number;
+  timestamp?: number;
 }
 
 export interface TranscriptEvent {

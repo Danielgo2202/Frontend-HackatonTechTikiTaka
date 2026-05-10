@@ -48,11 +48,14 @@ export function simulateMeetingFlow() {
   setIsRecording(true);
   setIsConnected(true);
   bumpConnectionEpoch();
-  setActiveClient({
-    name: mockHubspotBattlecard.client_context.name,
-    industry: mockHubspotBattlecard.client_context.industry,
-    deal_size: mockHubspotBattlecard.client_context.deal_size,
-  });
+  const mockCtx = mockHubspotBattlecard.client_context;
+  if (mockCtx) {
+    setActiveClient({
+      name: mockCtx.name,
+      industry: mockCtx.industry,
+      deal_size: mockCtx.deal_size,
+    });
+  }
 
   let currentStep = 0;
 

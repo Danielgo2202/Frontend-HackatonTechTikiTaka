@@ -50,7 +50,7 @@ function parseServerMessage(raw: string): WebSocketMessage | null {
       };
     }
     if (msg.type === "client_context") {
-      return msg as WebSocketMessage;
+      return msg as unknown as WebSocketMessage;
     }
   } catch {
     /* ignore non-JSON */
@@ -203,7 +203,7 @@ export function AudioCapture() {
             isPartial: parsed.isPartial,
             textPreview: parsed.text.slice(0, 120),
           });
-        } else {
+        } else if (parsed.type === "battlecard") {
           console.info("[Close Pilot][WS][debug] → addBattlecard", {
             id: parsed.id,
             competitor: parsed.competitor,
