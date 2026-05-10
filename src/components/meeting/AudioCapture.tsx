@@ -92,21 +92,41 @@ export function AudioCapture() {
   }, [disconnectSocket, setIsRecording]);
 
   const connectSocket = useCallback(() => {
-    if (!WS_URL) return null;
+    if (!WS_URL) {
+      console.warn(
+        "[Close Pilot][WS] connectSocket: condición no cumplida → WS_URL es falsy.",
+        "Valor actual WS_URL:",
+        WS_URL,
+        "| process.env.NEXT_PUBLIC_WS_URL (raw):",
+        process.env.NEXT_PUBLIC_WS_URL,
+      );
+      return null;
+    }
+    console.info("[Close Pilot][WS] Antes de new WebSocket — URL exacta:", WS_URL);
     const ws = new WebSocket(WS_URL);
     socketRef.current = ws;
 
     ws.onopen = () => {
+      console.info("[Close Pilot][WS] WebSocket conectado exitosamente");
       setIsConnected(true);
       useMeetingStore.getState().bumpConnectionEpoch();
     };
 
-    ws.onclose = () => {
+    ws.onclose = (ev: CloseEvent) => {
+      console.info("[Close Pilot][WS] onclose — código:", ev.code, "| razón:", ev.reason, "| wasClean:", ev.wasClean);
       setIsConnected(false);
       socketRef.current = null;
     };
 
-    ws.onerror = () => {
+    ws.onerror = (ev: Event) => {
+      const sock = ev.target instanceof WebSocket ? ev.target : null;
+      console.error("[Close Pilot][WS] onerror — evento completo:", {
+        type: ev.type,
+        timeStamp: ev.timeStamp,
+        url: sock?.url,
+        readyState: sock?.readyState,
+        event: ev,
+      });
       setIsConnected(false);
     };
 
@@ -159,6 +179,13 @@ export function AudioCapture() {
         connectSocket();
         const s = socketRef.current;
         if (!s) {
+          console.warn(
+            "[Close Pilot][WS] startCapture: condición no cumplida → connectSocket no dejó socket en ref.",
+            "WS_URL era truthy:",
+            WS_URL,
+            "| socketRef.current:",
+            s,
+          );
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
           return;
@@ -190,11 +217,24 @@ export function AudioCapture() {
             s.addEventListener("error", onErr);
           });
         } catch {
+          console.warn(
+            "[Close Pilot][WS] startCapture: espera de apertura WebSocket falló (timeout o error antes de open).",
+            "Estado socket:",
+            s.readyState,
+          );
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
           disconnectSocket();
           return;
         }
+      } else {
+        console.warn(
+          "[Close Pilot][WS] startCapture: condición no cumplida → no se llama connectSocket / new WebSocket.",
+          "WS_URL es falsy. Valor:",
+          WS_URL,
+          "| process.env.NEXT_PUBLIC_WS_URL (raw):",
+          process.env.NEXT_PUBLIC_WS_URL,
+        );
       }
 
       const recorder = new MediaRecorder(audioOnly, { mimeType });
