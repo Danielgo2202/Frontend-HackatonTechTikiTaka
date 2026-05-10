@@ -36,7 +36,6 @@ function parseServerMessage(raw: string): WebSocketMessage | null {
       const b = msg as unknown as BattlecardEvent;
       return {
         ...b,
-        id: b.id ?? crypto.randomUUID(),
         timestamp: b.timestamp ?? Date.now(),
       };
     }
@@ -203,17 +202,22 @@ export function AudioCapture() {
             isPartial: parsed.isPartial,
             textPreview: parsed.text.slice(0, 120),
           });
-        } else if (parsed.type === "battlecard") {
-          console.info("[Close Pilot][WS][debug] → addBattlecard", {
-            id: parsed.id,
-            competitor: parsed.competitor,
-          });
         }
       }
       if (parsed.type === "transcript") {
         addTranscript(parsed);
       } else if (parsed.type === "battlecard") {
-        addBattlecard(parsed);
+        const newCard: BattlecardEvent = {
+          ...parsed,
+          id: `${parsed.competitor}-${Date.now()}`,
+        };
+        if (DEBUG_CAPTURE) {
+          console.info("[Close Pilot][WS][debug] → addBattlecard", {
+            id: newCard.id,
+            competitor: newCard.competitor,
+          });
+        }
+        addBattlecard(newCard);
       } else if (parsed.type === "client_context") {
         setActiveClient(parsed.client_context);
       }

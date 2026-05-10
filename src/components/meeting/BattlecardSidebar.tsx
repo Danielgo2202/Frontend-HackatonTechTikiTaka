@@ -43,7 +43,7 @@ export function BattlecardSidebar() {
         ) : (
           <AnimatePresence mode="popLayout">
             {battlecards.map((card) => (
-              <Battlecard key={card.competitor} card={card} />
+              <Battlecard key={card.id} card={card} />
             ))}
           </AnimatePresence>
         )}

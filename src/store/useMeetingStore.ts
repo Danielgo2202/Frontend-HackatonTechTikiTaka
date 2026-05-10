@@ -58,21 +58,30 @@ export const useMeetingStore = create<MeetingState>((set) => ({
 
   addBattlecard: (battlecard) =>
     set((state) => {
+      const newCard: BattlecardEvent = {
+        ...battlecard,
+        id: battlecard.id ?? `${battlecard.competitor}-${Date.now()}`,
+      };
+
+      const sinDuplicado = state.battlecards.filter(
+        (c) => c.competitor !== newCard.competitor,
+      );
+
       const nextClient =
-        battlecard.client_context != null
+        newCard.client_context != null
           ? {
               id: state.activeClient?.id,
-              name: battlecard.client_context.name,
+              name: newCard.client_context.name,
               industry:
-                battlecard.client_context.industry ?? state.activeClient?.industry ?? null,
+                newCard.client_context.industry ?? state.activeClient?.industry ?? null,
               deal_size:
-                battlecard.client_context.deal_size ?? state.activeClient?.deal_size ?? null,
+                newCard.client_context.deal_size ?? state.activeClient?.deal_size ?? null,
               pain_points: state.activeClient?.pain_points,
             }
           : state.activeClient;
 
       return {
-        battlecards: [battlecard, ...state.battlecards].slice(0, 3),
+        battlecards: [newCard, ...sinDuplicado].slice(0, 3),
         activeClient: nextClient,
       };
     }),
