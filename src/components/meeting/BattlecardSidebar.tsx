@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import { Battlecard } from "@/components/meeting/Battlecard";
+import { ClientContextCard } from "@/components/meeting/ClientContextCard";
 
 export function BattlecardSidebar() {
-  const { battlecards, isRecording, connectionEpoch } = useMeetingStore();
+  const { battlecards, activeClient, isRecording, connectionEpoch } = useMeetingStore();
   const topId = battlecards[0]?.id;
   const [glow, setGlow] = useState(false);
   const prevTopRef = useRef<string | undefined>(undefined);
@@ -44,6 +45,7 @@ export function BattlecardSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-4 space-y-3">
+        <ClientContextCard client={activeClient} />
         {empty ? (
           <div className="min-h-[200px] flex flex-col items-center justify-center px-4 py-10">
             <p className="text-sm text-[#64748B] text-center leading-relaxed cp-dots max-w-[240px]">
