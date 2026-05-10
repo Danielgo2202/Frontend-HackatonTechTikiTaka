@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -49,8 +50,14 @@ const features = [
 ];
 
 export function LandingPage() {
+  const hasMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const reduceMotion = useReducedMotion();
   const { isSignedIn, isLoaded } = useAuth();
+  const shouldAnimate = hasMounted && !reduceMotion;
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#05070d] text-[#f1f5f9]">
@@ -125,8 +132,8 @@ export function LandingPage() {
           <div className="mx-auto max-w-3xl text-center">
             <motion.p
               custom={0}
-              initial={reduceMotion ? false : "hidden"}
-              animate={reduceMotion ? undefined : "show"}
+              initial={shouldAnimate ? "hidden" : false}
+              animate={shouldAnimate ? "show" : undefined}
               variants={fadeUp}
               className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-indigo-200/90 backdrop-blur-md"
             >
@@ -139,8 +146,8 @@ export function LandingPage() {
 
             <motion.h1
               custom={1}
-              initial={reduceMotion ? false : "hidden"}
-              animate={reduceMotion ? undefined : "show"}
+              initial={shouldAnimate ? "hidden" : false}
+              animate={shouldAnimate ? "show" : undefined}
               variants={fadeUp}
               className="text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl lg:leading-[1.08]"
             >
@@ -152,8 +159,8 @@ export function LandingPage() {
 
             <motion.p
               custom={2}
-              initial={reduceMotion ? false : "hidden"}
-              animate={reduceMotion ? undefined : "show"}
+              initial={shouldAnimate ? "hidden" : false}
+              animate={shouldAnimate ? "show" : undefined}
               variants={fadeUp}
               className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-slate-400 sm:text-lg"
             >
@@ -164,8 +171,8 @@ export function LandingPage() {
 
             <motion.div
               custom={3}
-              initial={reduceMotion ? false : "hidden"}
-              animate={reduceMotion ? undefined : "show"}
+              initial={shouldAnimate ? "hidden" : false}
+              animate={shouldAnimate ? "show" : undefined}
               variants={fadeUp}
               className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
             >
@@ -200,8 +207,8 @@ export function LandingPage() {
           </div>
 
           <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 28 }}
-            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            initial={shouldAnimate ? { opacity: 0, y: 28 } : false}
+            animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
             transition={{
               delay: 0.35,
               duration: 0.65,
@@ -251,8 +258,8 @@ export function LandingPage() {
         <section className="border-t border-white/[0.06] bg-[#070a12]/80 py-20 backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <motion.div
-              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              initial={shouldAnimate ? { opacity: 0, y: 16 } : false}
+              whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: 0.5 }}
               className="mx-auto max-w-2xl text-center"
@@ -270,8 +277,8 @@ export function LandingPage() {
               {features.map((f, i) => (
                 <motion.div
                   key={f.title}
-                  initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                  whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  initial={shouldAnimate ? { opacity: 0, y: 16 } : false}
+                  whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
                   viewport={{ once: true, margin: "-40px" }}
                   transition={{ delay: 0.06 * i, duration: 0.45 }}
                   className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 backdrop-blur-md transition-colors hover:border-white/[0.12] hover:bg-white/[0.05]"
