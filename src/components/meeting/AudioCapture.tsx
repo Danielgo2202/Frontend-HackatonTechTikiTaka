@@ -8,6 +8,9 @@ import type { BattlecardEvent, TranscriptEvent, WebSocketMessage } from "@/types
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim() || undefined;
 
+/** Logs detallados de audio/WS solo en dev (bundle de producción sin ruido) */
+const DEBUG_CAPTURE = process.env.NODE_ENV === "development";
+
 /** Prefer Opus in WebM — backend expects audio/webm chunks */
 function pickAudioMime(): string {
   const candidates = [
@@ -63,7 +66,11 @@ export function AudioCapture() {
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** Mic opcional para mezclar con audio de pantalla vía AudioContext */
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const captureMimeRef = useRef<string>("audio/webm");
+  const audioChunkSeqRef = useRef(0);
 
   const disconnectSocket = useCallback(() => {
     const s = socketRef.current;
@@ -85,6 +92,18 @@ export function AudioCapture() {
       rec.stop();
     }
     mediaRecorderRef.current = null;
+
+    const ctx = audioContextRef.current;
+    audioContextRef.current = null;
+    if (ctx) {
+      void ctx.close().catch(() => {
+        /* noop */
+      });
+    }
+
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
+
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     disconnectSocket();
@@ -102,18 +121,28 @@ export function AudioCapture() {
       );
       return null;
     }
-    console.info("[Close Pilot][WS] Antes de new WebSocket — URL exacta:", WS_URL);
+    if (DEBUG_CAPTURE) {
+      console.info("[Close Pilot][WS][debug] new WebSocket →", WS_URL);
+    }
     const ws = new WebSocket(WS_URL);
     socketRef.current = ws;
 
     ws.onopen = () => {
-      console.info("[Close Pilot][WS] WebSocket conectado exitosamente");
+      if (DEBUG_CAPTURE) {
+        console.info("[Close Pilot][WS][debug] onopen OK");
+      }
       setIsConnected(true);
       useMeetingStore.getState().bumpConnectionEpoch();
     };
 
     ws.onclose = (ev: CloseEvent) => {
-      console.info("[Close Pilot][WS] onclose — código:", ev.code, "| razón:", ev.reason, "| wasClean:", ev.wasClean);
+      if (DEBUG_CAPTURE) {
+        console.info("[Close Pilot][WS][debug] onclose", {
+          code: ev.code,
+          reason: ev.reason,
+          wasClean: ev.wasClean,
+        });
+      }
       setIsConnected(false);
       socketRef.current = null;
     };
@@ -131,9 +160,44 @@ export function AudioCapture() {
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      if (typeof event.data !== "string") return;
+      if (DEBUG_CAPTURE) {
+        const d = event.data;
+        console.log("[Close Pilot][WS][debug] mensaje entrante:", {
+          dataType: typeof d,
+          stringPreview: typeof d === "string" ? d.slice(0, 320) : undefined,
+          blobSize: typeof Blob !== "undefined" && d instanceof Blob ? d.size : undefined,
+        });
+      }
+
+      if (typeof event.data !== "string") {
+        return;
+      }
       const parsed = parseServerMessage(event.data);
-      if (!parsed) return;
+      if (!parsed) {
+        if (DEBUG_CAPTURE) {
+          try {
+            const obj = JSON.parse(event.data) as Record<string, unknown>;
+            console.warn("[Close Pilot][WS][debug] JSON sin dispatch (type?):", obj?.type, event.data.slice(0, 200));
+          } catch {
+            console.warn("[Close Pilot][WS][debug] payload no es JSON:", event.data.slice(0, 200));
+          }
+        }
+        return;
+      }
+      if (DEBUG_CAPTURE) {
+        if (parsed.type === "transcript") {
+          console.info("[Close Pilot][WS][debug] → addTranscript", {
+            id: parsed.id,
+            isPartial: parsed.isPartial,
+            textPreview: parsed.text.slice(0, 120),
+          });
+        } else {
+          console.info("[Close Pilot][WS][debug] → addBattlecard", {
+            id: parsed.id,
+            competitor: parsed.competitor,
+          });
+        }
+      }
       if (parsed.type === "transcript") {
         addTranscript(parsed);
       } else if (parsed.type === "battlecard") {
@@ -160,19 +224,35 @@ export function AudioCapture() {
 
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length === 0) {
+        if (DEBUG_CAPTURE) {
+          console.warn(
+            "[Close Pilot][capture][debug] Sin pistas de audio (marca «Compartir audio» en el diálogo del navegador).",
+            { videoTracks: stream.getVideoTracks().length },
+          );
+        }
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         return;
       }
 
-      const audioOnly = new MediaStream(audioTracks);
       const mimeType = pickAudioMime();
       captureMimeRef.current = mimeType.split(";")[0] ?? "audio/webm";
 
       if (!MediaRecorder.isTypeSupported(mimeType)) {
+        if (DEBUG_CAPTURE) {
+          console.warn("[Close Pilot][capture][debug] MediaRecorder no soporta mimeType:", mimeType);
+        }
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         return;
+      }
+
+      if (DEBUG_CAPTURE) {
+        console.info("[Close Pilot][capture][debug] getDisplayMedia OK", {
+          audioTracks: audioTracks.length,
+          videoTracks: stream.getVideoTracks().length,
+          mimeTypeRecorder: mimeType,
+        });
       }
 
       if (WS_URL) {
@@ -237,18 +317,93 @@ export function AudioCapture() {
         );
       }
 
-      const recorder = new MediaRecorder(audioOnly, { mimeType });
+      let micStream: MediaStream | null = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+        micStreamRef.current = micStream;
+        console.info(
+          "[Close Pilot][capture] Micrófono: capturado (se mezcla con audio de pantalla)",
+        );
+      } catch {
+        micStream = null;
+        micStreamRef.current = null;
+        console.info(
+          "[Close Pilot][capture] Micrófono: no capturado — continuando solo con audio de pantalla",
+        );
+      }
+
+      const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) {
+        if (DEBUG_CAPTURE) {
+          console.warn("[Close Pilot][capture][debug] AudioContext no disponible en este navegador");
+        }
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        micStreamRef.current?.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+        return;
+      }
+
+      const audioContext = new AudioCtx();
+      audioContextRef.current = audioContext;
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      const destination = audioContext.createMediaStreamDestination();
+      const displayAudioStream = new MediaStream(audioTracks);
+      const displaySource = audioContext.createMediaStreamSource(displayAudioStream);
+      displaySource.connect(destination);
+
+      if (micStream && micStream.getAudioTracks().length > 0) {
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(destination);
+      }
+
+      const mixedStream = destination.stream;
+
+      const recorder = new MediaRecorder(mixedStream, { mimeType });
       mediaRecorderRef.current = recorder;
 
-      recorder.addEventListener("error", () => {
+      recorder.addEventListener("error", (ev: Event) => {
+        if (DEBUG_CAPTURE) {
+          console.warn("[Close Pilot][audio][debug] MediaRecorder error:", ev);
+        }
         stopCapture();
       });
 
+      audioChunkSeqRef.current = 0;
       recorder.ondataavailable = (e: BlobEvent) => {
-        if (e.data.size === 0) return;
         const ws = socketRef.current;
+        const rs = ws?.readyState;
+        audioChunkSeqRef.current += 1;
+        const seq = audioChunkSeqRef.current;
+
+        if (e.data.size === 0) {
+          if (DEBUG_CAPTURE) {
+            console.warn("[Close Pilot][audio][debug] chunk vacío (omitido)", { seq, readyState: rs });
+          }
+          return;
+        }
+
         if (ws?.readyState === WebSocket.OPEN) {
+          if (DEBUG_CAPTURE) {
+            console.info("[Close Pilot][audio][debug] enviando chunk", {
+              seq,
+              bytes: e.data.size,
+              blobType: e.data.type || "(sin type)",
+            });
+          }
           ws.send(e.data);
+        } else if (DEBUG_CAPTURE) {
+          console.warn("[Close Pilot][audio][debug] chunk NO enviado — socket no OPEN", {
+            seq,
+            bytes: e.data.size,
+            readyState: rs,
+          });
         }
       };
 
@@ -259,10 +414,18 @@ export function AudioCapture() {
         setIsConnected(false);
       }
 
-      if (process.env.NODE_ENV === "development") {
-        console.info("[Close Pilot] Recording:", captureMimeRef.current, "chunks every 1000ms → WebSocket");
+      if (DEBUG_CAPTURE) {
+        console.info(
+          "[Close Pilot][capture][debug] MediaRecorder.start(1000ms) —",
+          "fuente: stream mezclado (pantalla + mic si aplica) —",
+          captureMimeRef.current,
+          "→ WebSocket",
+        );
       }
-    } catch {
+    } catch (err) {
+      if (DEBUG_CAPTURE) {
+        console.warn("[Close Pilot][capture][debug] fallo getDisplayMedia o setup:", err);
+      }
       stopCapture();
     }
   }, [
@@ -329,7 +492,7 @@ export function AudioCapture() {
             WS_URL
               ? isRecording
                 ? "Detener captura"
-                : "Compartir audio de la reunión (audio/webm al servidor)"
+                : "Pantalla + micrófono mezclados (audio/webm al servidor)"
               : "Define NEXT_PUBLIC_WS_URL para enviar audio al backend"
           }
           aria-pressed={isRecording}
