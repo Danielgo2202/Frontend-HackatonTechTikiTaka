@@ -6,11 +6,9 @@ import { motion } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import type { BattlecardEvent, TranscriptEvent, WebSocketMessage } from "@/types";
 import { ClientSelector } from "@/components/meeting/ClientSelector";
+import { getPublicEndpoints } from "@/lib/publicEndpoints";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim() || undefined;
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.trim() ||
-  (WS_URL ? WS_URL.replace(/^ws/i, "http").replace(/\/ws$/, "") : undefined);
+const { apiBaseUrl: API_URL, wsUrl: WS_URL } = getPublicEndpoints();
 
 const DEBUG_CAPTURE = process.env.NODE_ENV === "development";
 
@@ -116,17 +114,36 @@ export function AudioCapture() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const captureMimeRef = useRef<string>("audio/webm");
   const audioChunkSeqRef = useRef(0);
+  const intentionalCloseRef = useRef(false);
+  const isRecordingRef = useRef(isRecording);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const connectSocketRef = useRef<(() => WebSocket | null) | null>(null);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   const disconnectSocket = useCallback(() => {
+    intentionalCloseRef.current = true;
     const s = socketRef.current;
-    if (s && s.readyState === WebSocket.OPEN) {
+    if (s && (s.readyState === WebSocket.OPEN || s.readyState === WebSocket.CONNECTING)) {
       s.close();
     }
     socketRef.current = null;
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     setIsConnected(false);
   }, [setIsConnected]);
 
   const stopCapture = useCallback(() => {
+    reconnectAttemptRef.current = 0;
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     const rec = mediaRecorderRef.current;
     if (rec && rec.state !== "inactive") {
       try {
@@ -158,23 +175,25 @@ export function AudioCapture() {
   const connectSocket = useCallback(() => {
     if (!WS_URL) {
       console.warn(
-        "[Close Pilot][WS] connectSocket: condicion no cumplida -> WS_URL es falsy.",
-        "Valor actual WS_URL:",
-        WS_URL,
-        "| process.env.NEXT_PUBLIC_WS_URL (raw):",
+        "[WS] connectSocket skipped: no wsUrl (set NEXT_PUBLIC_WS_URL or NEXT_PUBLIC_API_URL in production).",
+        "raw NEXT_PUBLIC_WS_URL:",
         process.env.NEXT_PUBLIC_WS_URL
       );
       return null;
     }
-    if (DEBUG_CAPTURE) {
-      console.info("[Close Pilot][WS][debug] new WebSocket ->", WS_URL);
+    intentionalCloseRef.current = false;
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
+    console.log("[WS] Connecting to:", WS_URL);
     const ws = new WebSocket(WS_URL);
     socketRef.current = ws;
 
     ws.onopen = () => {
+      reconnectAttemptRef.current = 0;
       if (DEBUG_CAPTURE) {
-        console.info("[Close Pilot][WS][debug] onopen OK");
+        console.info("[WS] onopen", WS_URL);
       }
       setIsConnected(true);
       useMeetingStore.getState().bumpConnectionEpoch();
@@ -186,19 +205,44 @@ export function AudioCapture() {
 
     ws.onclose = (ev: CloseEvent) => {
       if (DEBUG_CAPTURE) {
-        console.info("[Close Pilot][WS][debug] onclose", {
+        console.info("[WS] onclose", {
           code: ev.code,
           reason: ev.reason,
           wasClean: ev.wasClean,
         });
       }
+      const wasIntentional = intentionalCloseRef.current;
+      if (wasIntentional) {
+        intentionalCloseRef.current = false;
+      }
       setIsConnected(false);
       socketRef.current = null;
+
+      if (wasIntentional || !WS_URL) return;
+      if (!isRecordingRef.current) return;
+
+      const attempt = reconnectAttemptRef.current;
+      if (attempt >= 6) {
+        console.warn("[WS] Max reconnect attempts reached; stop capture or retry.");
+        return;
+      }
+      reconnectAttemptRef.current = attempt + 1;
+      const delayMs = Math.min(30_000, 1000 * 2 ** attempt);
+      console.warn("[WS] Closed during capture; reconnecting in ms:", delayMs, {
+        code: ev.code,
+        reason: ev.reason,
+        attempt: reconnectAttemptRef.current,
+      });
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        if (!isRecordingRef.current || !WS_URL) return;
+        connectSocketRef.current?.();
+      }, delayMs);
     };
 
     ws.onerror = (ev: Event) => {
       const sock = ev.target instanceof WebSocket ? ev.target : null;
-      console.error("[Close Pilot][WS] onerror - evento completo:", {
+      console.error("[WS] onerror", {
         type: ev.type,
         timeStamp: ev.timeStamp,
         url: sock?.url,
@@ -270,6 +314,8 @@ export function AudioCapture() {
     return ws;
   }, [addBattlecard, addTranscript, setActiveClient, setIsConnected]);
 
+  connectSocketRef.current = connectSocket;
+
   const sendClientSelection = useCallback((clientId: string | null) => {
     const ws = socketRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -334,13 +380,11 @@ export function AudioCapture() {
         connectSocket();
         const s = socketRef.current;
         if (!s) {
-          console.warn(
-            "[Close Pilot][WS] startCapture: condicion no cumplida -> connectSocket no dejo socket en ref.",
-            "WS_URL era truthy:",
-            WS_URL,
-            "| socketRef.current:",
-            s
-          );
+        console.warn(
+          "[WS] startCapture: connectSocket did not set socket ref.",
+          "wsUrl:",
+          WS_URL
+        );
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
           return;
@@ -372,11 +416,10 @@ export function AudioCapture() {
             s.addEventListener("error", onErr);
           });
         } catch {
-          console.warn(
-            "[Close Pilot][WS] startCapture: espera de apertura WebSocket fallo.",
-            "Estado socket:",
-            s.readyState
-          );
+          console.warn("[WS] startCapture: WebSocket open timeout.", {
+            readyState: s.readyState,
+            wsUrl: WS_URL,
+          });
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
           disconnectSocket();
@@ -384,11 +427,8 @@ export function AudioCapture() {
         }
       } else {
         console.warn(
-          "[Close Pilot][WS] startCapture: condicion no cumplida -> no se llama connectSocket / new WebSocket.",
-          "WS_URL es falsy. Valor:",
-          WS_URL,
-          "| process.env.NEXT_PUBLIC_WS_URL (raw):",
-          process.env.NEXT_PUBLIC_WS_URL
+          "[WS] startCapture: no WebSocket (missing NEXT_PUBLIC_WS_URL / NEXT_PUBLIC_API_URL in production).",
+          { wsUrl: WS_URL, rawWsEnv: process.env.NEXT_PUBLIC_WS_URL }
         );
       }
 

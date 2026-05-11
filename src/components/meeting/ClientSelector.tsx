@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { ClientContext } from "@/types";
+import { joinApiPath } from "@/lib/publicEndpoints";
 
 interface SearchResponse {
   items: ClientContext[];
@@ -32,7 +33,12 @@ export function ClientSelector({
 
   const endpoint = useMemo(() => {
     if (!apiBaseUrl) return null;
-    return `${apiBaseUrl.replace(/\/$/, "")}/clients/search`;
+    try {
+      return joinApiPath(apiBaseUrl, "clients/search").toString();
+    } catch {
+      console.error("[API] Invalid NEXT_PUBLIC_API_URL / apiBaseUrl:", apiBaseUrl);
+      return null;
+    }
   }, [apiBaseUrl]);
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export function ClientSelector({
         const url = new URL(endpoint);
         url.searchParams.set("q", query.trim());
         url.searchParams.set("limit", "5");
+        console.info("[API] GET", url.toString());
         const res = await fetch(url.toString(), { signal: controller.signal });
         if (!res.ok) throw new Error("search_failed");
         const data = (await res.json()) as SearchResponse;
