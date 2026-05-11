@@ -4,6 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import { Battlecard } from "@/components/meeting/Battlecard";
 import { ClientContextCard } from "@/components/meeting/ClientContextCard";
+import { Lightbulb } from "lucide-react";
+
+const moves = [
+  "Ask about the decision timeline when you spot a buying signal.",
+  "Use the battlecard before drifting into a long feature comparison.",
+  "Bring back the client's pain points to close with context.",
+];
 
 export function BattlecardSidebar() {
   const { battlecards, activeClient, connectionEpoch } = useMeetingStore();
@@ -15,38 +22,39 @@ export function BattlecardSidebar() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#111827]/80 shadow-[0_24px_48px_rgba(0,0,0,0.35)] backdrop-blur-sm"
+      className="flex min-h-[520px] w-full flex-col gap-5 self-start"
     >
-      <div className="shrink-0 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-5 py-3.5">
-        <p className="text-[13px] font-medium tracking-tight text-[#F1F5F9]">
-          Inteligencia competitiva
-        </p>
-        <p className="mt-0.5 text-[11px] text-[#64748B]">
-          Battlecards cuando detectamos un competidor
-        </p>
-      </div>
+      <AnimatePresence mode="popLayout">
+        {battlecards.map((card) => (
+          <Battlecard key={card.id} card={card} />
+        ))}
+      </AnimatePresence>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-4">
-        <ClientContextCard client={activeClient} />
+      {empty && (
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="text-sm font-semibold">Battlecards</div>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            When we detect a competitor during the call, it will appear here
+            with suggested responses and context.
+          </p>
+        </div>
+      )}
 
-        {empty ? (
-          <div className="flex min-h-[200px] flex-col items-center justify-center px-4 py-10">
-            <p className="text-center text-sm text-[#64748B]">
-              Escuchando la llamada
-              <span className="inline-flex translate-y-[1px] gap-0.5">
-                <span className="animate-pulse">.</span>
-                <span className="animate-pulse">.</span>
-                <span className="animate-pulse">.</span>
-              </span>
-            </p>
-          </div>
-        ) : (
-          <AnimatePresence mode="popLayout">
-            {battlecards.map((card) => (
-              <Battlecard key={card.id} card={card} />
-            ))}
-          </AnimatePresence>
-        )}
+      <ClientContextCard client={activeClient} />
+
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-foreground" />
+          <div className="text-sm font-semibold">Suggested next moves</div>
+        </div>
+        <ul className="mt-4 space-y-2.5">
+          {moves.map((move) => (
+            <li key={move} className="flex gap-3 text-sm">
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-foreground" />
+              <span className="leading-relaxed text-foreground/85">{move}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </motion.section>
   );

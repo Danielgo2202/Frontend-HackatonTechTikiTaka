@@ -1,315 +1,548 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { UserButton, useAuth } from "@clerk/nextjs";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
-  BarChart3,
+  Building2,
+  Check,
+  LineChart,
+  Lock,
   Mic,
-  Radio,
+  Phone,
   Sparkles,
+  Swords,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: 0.06 * i,
-      duration: 0.55,
-      ease: [0.22, 1, 0.36, 1] as const,
-    },
-  }),
-};
-
 const features = [
   {
     icon: Mic,
-    title: "Transcripción en vivo",
-    desc: "Audio a texto con latencia mínima para no perder el hilo de la conversación.",
+    title: "Realtime transcript",
+    desc: "Sub-second streaming with speaker diarization. Reads every word your prospect says.",
+    grad: "var(--gradient-iridescent)",
   },
   {
-    icon: Radio,
-    title: "Detección de competidores",
-    desc: "Señales contextuales mientras hablas, sin interrumpir el flujo del meeting.",
+    icon: Swords,
+    title: "Dynamic battlecards",
+    desc: "The instant a competitor is named, the right counter appears - talk track, pricing, proof.",
+    grad: "var(--gradient-sunrise)",
   },
   {
-    icon: BarChart3,
-    title: "Battlecards dinámicas",
-    desc: "Respuestas listas cuando el cliente menciona objeciones o rivales.",
+    icon: Building2,
+    title: "Account context",
+    desc: "Funding, headcount, tech stack and prior calls - surfaced before you say hello.",
+    grad: "var(--gradient-mint)",
   },
   {
     icon: Zap,
-    title: "Pensado para ventas",
-    desc: "Un copiloto que se siente parte del CRM, no un experimento de laboratorio.",
+    title: "Zero-latency cues",
+    desc: "On-screen suggestions that stay calm, fast and relevant while the meeting is still moving.",
+    grad: "var(--gradient-warm)",
+  },
+  {
+    icon: Lock,
+    title: "Private by design",
+    desc: "Built to feel serious from day one, with a product experience ready to grow past the hackathon.",
+    grad: "var(--gradient-iridescent)",
+  },
+  {
+    icon: LineChart,
+    title: "Post-call insight",
+    desc: "Auto-summary, next steps and competitive context ready for the follow-up.",
+    grad: "var(--gradient-sunrise)",
+  },
+];
+
+const steps = [
+  {
+    n: "01",
+    title: "Connect",
+    body: "Plug into your meeting, share audio and let Close Pilot start listening to the call in real time.",
+    grad: "var(--gradient-sunrise)",
+  },
+  {
+    n: "02",
+    title: "Listen",
+    body: "Live transcript and competitive signals appear the moment the conversation gets interesting.",
+    grad: "var(--gradient-iridescent)",
+  },
+  {
+    n: "03",
+    title: "Win",
+    body: "Battlecards, objections and account context show up on the side exactly when you need them.",
+    grad: "var(--gradient-mint)",
+  },
+];
+
+const footerColumns = [
+  {
+    heading: "Product",
+    links: [
+      { href: "#features", label: "Features" },
+      { href: "#pricing", label: "Pricing" },
+      { href: "/demo", label: "Live demo" },
+      { href: "#how", label: "Integrations" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { href: "#how", label: "About" },
+      { href: "#faq", label: "Customers" },
+      { href: "#pricing", label: "Careers" },
+      { href: "#features", label: "Press" },
+    ],
+  },
+  {
+    heading: "Legal",
+    links: [
+      { href: "/sign-in", label: "Privacy" },
+      { href: "/sign-up", label: "Terms" },
+      { href: "/demo", label: "Security" },
+      { href: "/", label: "DPA" },
+    ],
   },
 ];
 
 export function LandingPage() {
-  const hasMounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
-  const reduceMotion = useReducedMotion();
   const { isSignedIn, isLoaded } = useAuth();
-  const shouldAnimate = hasMounted && !reduceMotion;
+  const primaryHref = isSignedIn ? "/demo" : "/sign-up";
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#05070d] text-[#f1f5f9]">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.55]"
-        aria-hidden
-      >
-        <div className="absolute -left-1/4 top-0 h-[520px] w-[520px] rounded-full bg-indigo-600/25 blur-[120px]" />
-        <div className="absolute -right-1/4 top-1/3 h-[480px] w-[480px] rounded-full bg-violet-500/20 blur-[110px]" />
-        <div className="absolute bottom-0 left-1/3 h-[360px] w-[360px] rounded-full bg-cyan-500/15 blur-[100px]" />
-      </div>
-
-      <div
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,#000_40%,transparent)]"
-        aria-hidden
-      />
-
-      <header className="relative z-10 border-b border-white/[0.06] bg-[#05070d]/70 backdrop-blur-xl">
-        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm font-semibold tracking-tight text-white"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25">
-              <Sparkles className="h-4 w-4 text-white" aria-hidden />
-            </span>
-            Close Pilot
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-[90px] max-w-[1760px] items-center justify-between px-6 lg:px-10">
+          <Link href="/" className="flex items-center gap-4">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-foreground text-[12px] font-bold tracking-tight text-background">
+              CP
+            </div>
+            <span className="text-[18px] font-semibold tracking-tight">Close Pilot</span>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <nav className="hidden items-center gap-12 text-[17px] text-muted-foreground md:flex">
+            <a href="#features" className="transition hover:text-foreground">
+              Features
+            </a>
+            <a href="#how" className="transition hover:text-foreground">
+              How it works
+            </a>
+            <a href="#pricing" className="transition hover:text-foreground">
+              Pricing
+            </a>
+            <a href="#faq" className="transition hover:text-foreground">
+              FAQ
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href={primaryHref}
+              className="hidden h-[50px] items-center gap-2 rounded-full border border-border bg-card px-7 text-[15px] font-medium transition hover:bg-accent sm:inline-flex"
+            >
+              <Phone className="h-4 w-4" />
+              Book demo
+            </Link>
+
             {!isLoaded ? (
-              <span className="h-9 w-20 animate-pulse rounded-lg bg-white/5" />
-            ) : isSignedIn ? (
-              <>
-                <Link
-                  href="/demo"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white"
-                >
-                  App
-                </Link>
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "h-9 w-9 ring-2 ring-white/10",
-                    },
-                  }}
-                />
-              </>
+              <span className="h-[50px] w-36 rounded-full bg-secondary animate-pulse" />
             ) : (
-              <>
-                <Link
-                  href="/sign-in"
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/sign-up"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-black/20 transition-transform hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  Get Started
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-              </>
+              <Link
+                href={primaryHref}
+                className="inline-flex h-[50px] items-center rounded-full bg-foreground px-8 text-[15px] font-medium text-background transition hover:bg-foreground/90"
+              >
+                Open app
+              </Link>
+            )}
+
+            {isLoaded && isSignedIn && (
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-10 w-10 ring-1 ring-stone-200",
+                  },
+                }}
+              />
             )}
           </div>
-        </nav>
+        </div>
       </header>
 
-      <main className="relative z-10">
-        <section className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:px-8 lg:pt-28">
-          <div className="mx-auto max-w-3xl text-center">
-            <motion.p
-              custom={0}
-              initial={shouldAnimate ? "hidden" : false}
-              animate={shouldAnimate ? "show" : undefined}
-              variants={fadeUp}
-              className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-medium text-indigo-200/90 backdrop-blur-md"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              Copiloto de reuniones para equipos que cierran
-            </motion.p>
+      <main>
+        <section className="relative overflow-hidden">
+          <div className="mx-auto grid max-w-[1760px] gap-20 px-6 pb-24 pt-28 lg:grid-cols-[1.12fr_0.88fr] lg:items-center lg:px-10 lg:pb-20">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5" />
+                Realtime sales copilot · now in private beta
+              </div>
 
-            <motion.h1
-              custom={1}
-              initial={shouldAnimate ? "hidden" : false}
-              animate={shouldAnimate ? "show" : undefined}
-              variants={fadeUp}
-              className="text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl lg:leading-[1.08]"
-            >
-              Tu reunión, transcrita.{" "}
-              <span className="bg-gradient-to-r from-indigo-300 via-white to-cyan-200 bg-clip-text text-transparent">
-                Tu pitch, blindado.
-              </span>
-            </motion.h1>
+              <h1 className="mt-14 max-w-[780px] text-display text-[92px] sm:text-[108px] lg:text-[148px]">
+                Close calls
+                <br />
+                with an
+                <br />
+                <span className="font-serif-italic font-normal text-[0.94em]">
+                  unfair
+                </span>
+                <br />
+                advantage.
+              </h1>
 
-            <motion.p
-              custom={2}
-              initial={shouldAnimate ? "hidden" : false}
-              animate={shouldAnimate ? "show" : undefined}
-              variants={fadeUp}
-              className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-slate-400 sm:text-lg"
-            >
-              Transcripción en tiempo real, detección de competidores y
-              battlecards que aparecen cuando las necesitas. Una experiencia SaaS
-              seria, sin reimaginar tu stack.
-            </motion.p>
+              <p className="mt-10 max-w-xl text-[22px] leading-[1.6] text-muted-foreground">
+                Close Pilot listens to your sales calls in real time - surfacing
+                battlecards, competitor intel and account context the moment it
+                matters. Quietly. On the side.
+              </p>
 
-            <motion.div
-              custom={3}
-              initial={shouldAnimate ? "hidden" : false}
-              animate={shouldAnimate ? "show" : undefined}
-              variants={fadeUp}
-              className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
-            >
-              {!isLoaded ? (
-                <span className="h-12 w-full max-w-xs animate-pulse rounded-xl bg-white/5 sm:w-48" />
-              ) : isSignedIn ? (
-                <Link
-                  href="/demo"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-indigo-500/25 transition-transform hover:-translate-y-0.5 sm:w-auto"
+              <div className="mt-10 flex flex-wrap items-center gap-4">
+                {!isLoaded ? (
+                  <span className="h-16 w-52 rounded-full bg-secondary animate-pulse" />
+                ) : (
+                  <Link
+                    href={primaryHref}
+                    className="group inline-flex h-16 items-center gap-2 rounded-full bg-foreground px-8 text-[16px] font-medium text-background shadow-premium transition hover:bg-foreground/90"
+                  >
+                    Try the live demo
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  </Link>
+                )}
+
+                <a
+                  href="#how"
+                  className="inline-flex h-16 items-center rounded-full border border-border bg-card px-8 text-[16px] font-medium transition hover:bg-accent"
                 >
-                  Ir al workspace
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/sign-up"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-indigo-500/25 transition-transform hover:-translate-y-0.5 sm:w-auto"
-                  >
-                    Get Started
-                    <ArrowRight className="h-4 w-4" aria-hidden />
-                  </Link>
-                  <Link
-                    href="/sign-in"
-                    className="inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/[0.08] sm:w-auto"
-                  >
-                    Ya tengo cuenta
-                  </Link>
-                </>
-              )}
-            </motion.div>
-          </div>
+                  See how it works
+                </a>
+              </div>
 
-          <motion.div
-            initial={shouldAnimate ? { opacity: 0, y: 28 } : false}
-            animate={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
-            transition={{
-              delay: 0.35,
-              duration: 0.65,
-              ease: [0.22, 1, 0.36, 1] as const,
-            }}
-            className="mx-auto mt-16 max-w-5xl lg:mt-20"
-          >
-            <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.07] to-transparent p-px shadow-2xl shadow-black/50">
-              <div className="overflow-hidden rounded-[15px] bg-[#0a0e1a]/90 backdrop-blur-xl">
-                <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
-                  <span className="ml-2 text-xs text-slate-500">
-                    demo / live session
-                  </span>
+              <div className="mt-14 flex items-center gap-6 text-[14px] text-muted-foreground">
+                <div className="flex -space-x-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-9 w-9 rounded-full border-2 border-background"
+                      style={{
+                        background:
+                          [
+                            "var(--gradient-sunrise)",
+                            "var(--gradient-mint)",
+                            "var(--gradient-iridescent)",
+                            "var(--gradient-warm)",
+                          ][i],
+                      }}
+                    />
+                  ))}
                 </div>
-                <div className="grid gap-0 lg:grid-cols-12">
-                  <div className="border-b border-white/[0.06] p-4 lg:col-span-5 lg:border-b-0 lg:border-r">
-                    <div className="mb-3 h-2 w-24 rounded bg-white/10" />
-                    <div className="space-y-2">
-                      <div className="h-16 rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20" />
-                      <div className="h-16 rounded-lg bg-white/[0.04] ring-1 ring-white/[0.06]" />
-                    </div>
+                Loved by 2,400+ AEs at Series A -&gt; public companies
+              </div>
+            </div>
+
+            <div className="relative pt-8 lg:pt-24">
+              <div
+                className="absolute -inset-12 rounded-full opacity-25 blur-3xl"
+                style={{ background: "var(--gradient-iridescent)" }}
+                aria-hidden
+              />
+              <div className="relative rounded-[34px] p-1 shadow-premium-xl noise bg-gradient-iridescent">
+                <div className="rounded-[30px] bg-foreground/95 p-10 text-background backdrop-blur-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-background/10 px-4 py-2 text-[13px] font-medium">
+                      <span className="h-2 w-2 rounded-full bg-success animate-pulse-dot" />
+                      Live · Acme Corp
+                    </span>
+                    <span className="text-[13px] text-background/60">02:14</span>
                   </div>
-                  <div className="p-4 lg:col-span-7">
-                    <div className="mb-3 flex gap-2">
-                      <div className="h-2 flex-1 rounded bg-white/10" />
-                      <div className="h-2 w-20 rounded bg-emerald-500/30" />
+
+                  <div className="mt-14">
+                    <div className="text-[12px] uppercase tracking-[0.32em] text-background/45">
+                      BATTLECARD
                     </div>
-                    <div className="space-y-2">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className="h-3 rounded bg-white/[0.06]"
-                          style={{ width: `${88 - i * 9}%` }}
-                        />
-                      ))}
+                    <h3 className="mt-4 text-[56px] leading-[1.08] font-semibold tracking-tight">
+                      They mentioned
+                      <span className="font-serif-italic font-normal">
+                        {" "}
+                        Salesloft.
+                      </span>
+                    </h3>
+                    <p className="mt-6 max-w-[640px] text-[18px] leading-[1.75] text-background/68">
+                      Lead with your native dialer + 40% lower seat price. Avoid
+                      the integrations debate.
+                    </p>
+                  </div>
+
+                  <div className="mt-10 grid gap-3 sm:grid-cols-2">
+                    <Metric label="PRICING" value="$79 vs $125 / seat" />
+                    <Metric label="WIN RATE" value="68% head-to-head" />
+                  </div>
+
+                  <div className="mt-5 rounded-3xl border border-background/10 bg-background/5 px-5 py-4">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-background/45">
+                      Live transcript
                     </div>
+                    <p className="mt-2 text-[15px] leading-relaxed text-background/82">
+                      &quot;...we&apos;re already evaluating
+                      <span className="rounded px-1 bg-warning/30 text-background">
+                        {" "}
+                        Salesloft
+                      </span>{" "}
+                      so I want to understand -&quot;
+                    </p>
                   </div>
                 </div>
               </div>
+
+              <div className="absolute -bottom-8 -left-6 rounded-2xl border border-border bg-card px-5 py-4 shadow-premium animate-float-slow">
+                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  Account context
+                </div>
+                <div className="mt-1 text-[15px] font-semibold">
+                  Acme · Series C · 220 emp
+                </div>
+              </div>
             </div>
-          </motion.div>
+          </div>
+
+          <div className="mx-auto max-w-[1760px] px-6 pb-20 lg:px-10">
+            <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-4 opacity-65">
+              {["Linear", "Ramp", "Vercel", "Notion", "Retool", "Loom", "Mercury"].map(
+                (name) => (
+                  <span
+                    key={name}
+                    className="text-[24px] font-semibold tracking-tight text-muted-foreground"
+                  >
+                    {name}
+                  </span>
+                )
+              )}
+            </div>
+          </div>
         </section>
 
-        <section className="border-t border-white/[0.06] bg-[#070a12]/80 py-20 backdrop-blur-sm">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={shouldAnimate ? { opacity: 0, y: 16 } : false}
-              whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5 }}
-              className="mx-auto max-w-2xl text-center"
-            >
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                Todo lo que esperas de un SaaS moderno
+        <section id="features" className="relative border-t border-border/60 py-32">
+          <div className="mx-auto max-w-[1760px] px-6 lg:px-10">
+            <div className="max-w-4xl">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+                MEMBERSHIP BENEFITS
+              </div>
+              <h2 className="mt-8 max-w-[980px] text-display text-6xl sm:text-7xl lg:text-[102px]">
+                The way selling
+                <br />
+                <span className="font-serif-italic font-normal">should&apos;ve</span>{" "}
+                been done.
               </h2>
-              <p className="mt-3 text-slate-400">
-                Diseñado para demos rápidas y para seguir creciendo después del
-                hackathon.
+              <p className="mt-8 max-w-4xl text-[22px] leading-[1.8] text-muted-foreground">
+                Close Pilot replaces frantic note-taking, scattered docs and
+                battlecard PDFs nobody reads - with a calm, on-screen assistant
+                that actually shows up when you need it.
               </p>
-            </motion.div>
+            </div>
 
-            <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {features.map((f, i) => (
-                <motion.div
-                  key={f.title}
-                  initial={shouldAnimate ? { opacity: 0, y: 16 } : false}
-                  whileInView={shouldAnimate ? { opacity: 1, y: 0 } : undefined}
-                  viewport={{ once: true, margin: "-40px" }}
-                  transition={{ delay: 0.06 * i, duration: 0.45 }}
-                  className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 backdrop-blur-md transition-colors hover:border-white/[0.12] hover:bg-white/[0.05]"
+            <div className="mt-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => (
+                <div
+                  key={feature.title}
+                  className="group rounded-[32px] border border-border bg-card p-8 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-premium"
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-400/20 transition-transform group-hover:scale-105">
-                    <f.icon className="h-5 w-5" aria-hidden />
+                  <div
+                    className="relative mb-8 h-44 overflow-hidden rounded-[28px] noise"
+                    style={{ background: feature.grad }}
+                  >
+                    <div className="absolute inset-0 grid place-items-center">
+                      <feature.icon
+                        className="h-11 w-11 text-white drop-shadow-lg"
+                        strokeWidth={1.7}
+                      />
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-white">{f.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                    {f.desc}
+                  <h3 className="text-[22px] font-semibold tracking-tight">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-4 text-[16px] leading-[1.7] text-muted-foreground">
+                    {feature.desc}
                   </p>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
-        <footer className="border-t border-white/[0.06] py-10">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-slate-500 sm:flex-row sm:px-6 lg:px-8">
-            <span>© {new Date().getFullYear()} Close Pilot</span>
-            <div className="flex gap-6">
-              <Link href="/sign-in" className="hover:text-slate-300">
-                Login
-              </Link>
-              <Link href="/sign-up" className="hover:text-slate-300">
-                Registro
-              </Link>
+        <section id="how" className="bg-surface py-32">
+          <div className="mx-auto max-w-[1760px] px-6 lg:px-10">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+                HOW IT WORKS
+              </div>
+              <h2 className="mt-6 text-display text-5xl sm:text-6xl lg:text-[84px]">
+                One subscription,
+                <br />
+                <span className="font-serif-italic font-normal">endless</span>{" "}
+                revenue.
+              </h2>
+            </div>
+
+            <div className="mt-16 grid gap-5 md:grid-cols-3">
+              {steps.map((step) => (
+                <div
+                  key={step.n}
+                  className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
+                >
+                  <div className="h-48 noise" style={{ background: step.grad }} />
+                  <div className="p-8">
+                    <div className="font-mono text-[11px] text-muted-foreground">
+                      {step.n}
+                    </div>
+                    <h3 className="mt-2 text-[32px] font-semibold tracking-tight">
+                      {step.title}
+                    </h3>
+                    <p className="mt-3 text-[15px] leading-[1.75] text-muted-foreground">
+                      {step.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </footer>
+        </section>
+
+        <section id="pricing" className="py-32">
+          <div className="mx-auto max-w-[1760px] px-6 lg:px-10">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+                PRICING
+              </div>
+              <h2 className="mt-6 text-display text-5xl sm:text-6xl lg:text-[84px]">
+                One plan,
+                <span className="font-serif-italic font-normal">
+                  {" "}
+                  everything{" "}
+                </span>
+                included.
+              </h2>
+            </div>
+
+            <div className="mx-auto mt-16 grid max-w-6xl items-stretch gap-6 lg:grid-cols-[1fr_1.1fr]">
+              <div
+                className="relative overflow-hidden rounded-3xl noise shadow-premium-xl"
+                style={{ background: "var(--gradient-sunrise)" }}
+              >
+                <div className="absolute inset-0 grid place-items-center">
+                  <div className="text-center text-white">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-white/70">
+                      Monthly Club
+                    </div>
+                    <div className="mt-3 text-7xl font-serif-italic">Close Pilot</div>
+                    <div className="mt-2 text-sm text-white/80">
+                      closer&apos;s edition
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl bg-foreground p-8 text-background shadow-premium-xl">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-semibold">Close Pilot Pro</h3>
+                  <span className="rounded-full border border-background/20 px-2.5 py-1 text-[10px] uppercase tracking-wider text-background/70">
+                    Pause anytime
+                  </span>
+                </div>
+                <div className="mt-1 text-sm text-background/60">
+                  For revenue teams who close fast.
+                </div>
+
+                <div className="mt-7 flex items-baseline gap-2">
+                  <span className="text-5xl font-bold tracking-tight">$79</span>
+                  <span className="text-sm text-background/60">/ seat / month</span>
+                  <span className="ml-2 text-sm text-background/40 line-through">
+                    $129
+                  </span>
+                </div>
+
+                <Link
+                  href={primaryHref}
+                  className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-full bg-background font-medium text-foreground transition hover:bg-background/90"
+                >
+                  Start free trial
+                </Link>
+
+                <div className="mt-7 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {[
+                    "Realtime transcript",
+                    "Battlecard engine",
+                    "Account context",
+                    "Zoom + Meet + Teams",
+                    "CRM auto-sync",
+                    "On-device mode",
+                    "Unlimited calls",
+                    "Live workspace",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center gap-2 text-background/85"
+                    >
+                      <Check className="h-4 w-4 text-success" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" className="border-t border-border py-16">
+          <div className="mx-auto grid max-w-[1760px] gap-10 px-6 lg:grid-cols-[2fr_1fr_1fr_1fr] lg:px-10">
+            <div>
+              <div className="flex items-center gap-4">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-foreground text-[12px] font-bold tracking-tight text-background">
+                  CP
+                </div>
+                <span className="text-[18px] font-semibold tracking-tight">Close Pilot</span>
+              </div>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                The realtime sales copilot that quietly closes the gap between a
+                great rep and a great call.
+              </p>
+            </div>
+
+            {footerColumns.map((column) => (
+              <div key={column.heading}>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {column.heading}
+                </div>
+                <ul className="mt-4 space-y-2.5 text-sm">
+                  {column.links.map((item) => (
+                    <li key={item.label}>
+                      <Link
+                        href={item.href}
+                        className="text-foreground/80 transition hover:text-foreground"
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="mx-auto mt-12 flex max-w-[1760px] flex-wrap items-center justify-between gap-3 border-t border-border px-6 pt-6 text-xs text-muted-foreground lg:px-10">
+            <div>© 2026 Close Pilot Labs Inc.</div>
+            <div>Crafted with care · San Francisco / Lisbon</div>
+          </div>
+        </section>
       </main>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[26px] border border-background/10 bg-background/5 px-5 py-5">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-background/45">
+        {label}
+      </div>
+      <div className="mt-2 text-[18px] font-semibold">{value}</div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Swords } from "lucide-react";
 import type { BattlecardEvent } from "@/types";
 
 interface BattlecardProps {
@@ -9,8 +10,14 @@ interface BattlecardProps {
 
 export function Battlecard({ card }: BattlecardProps) {
   const { data, competitor, confidence, client_context } = card;
-  const accentColor = confidence > 0.85 ? "#10B981" : "#F59E0B";
-  const pct = Math.round(confidence * 100);
+  const pct = Math.round((confidence <= 1 ? confidence * 100 : confidence) || 0);
+  const keyDifferentiator =
+    data?.key_differentiator?.trim() || "No differentiator available.";
+  const suggestedResponse =
+    data?.suggested_response?.trim() || "No suggested response available.";
+  const recommendedQuestion =
+    data?.recommended_question?.trim() || "No recommended question available.";
+  const weaknesses = Array.isArray(data?.weaknesses) ? data.weaknesses : [];
 
   const footerParts = [
     client_context?.name,
@@ -24,66 +31,55 @@ export function Battlecard({ card }: BattlecardProps) {
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.95 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="mb-3 flex overflow-hidden rounded-xl border border-white/5 bg-[#111827] shadow-lg shadow-black/30 last:mb-0"
+      className="overflow-hidden rounded-2xl border border-border shadow-premium"
     >
-      <div
-        className="w-[3px] shrink-0 self-stretch"
-        style={{ backgroundColor: accentColor }}
-        aria-hidden
-      />
-
-      <div className="min-w-0 flex-1 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-bold uppercase tracking-tight text-[#F1F5F9]">
-            {competitor}
-          </h3>
-          <span className="shrink-0 text-sm tabular-nums text-[#94A3B8]">{pct}%</span>
+      <div className="flex items-center justify-between bg-foreground px-5 py-3 text-background">
+        <div className="flex items-center gap-2">
+          <Swords className="h-4 w-4" />
+          <span className="text-sm font-semibold">Battlecard · {competitor}</span>
         </div>
+        <span className="text-[10px] uppercase tracking-wider text-background/60">
+          {pct}% confidence
+        </span>
+      </div>
 
-        <div className="mt-4 space-y-3">
-          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
-              DIFERENCIADOR
-            </p>
-            <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug text-[#F1F5F9]">
-              {data.key_differentiator}
-            </p>
-          </section>
+      <div className="bg-card p-5">
+        <section className="rounded-xl border border-border bg-surface px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Differentiator
+          </p>
+          <p className="mt-1.5 text-sm font-medium leading-snug">{keyDifferentiator}</p>
+        </section>
 
-          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
-              RESPUESTA SUGERIDA
-            </p>
-            <p className="mt-1.5 line-clamp-2 text-sm font-medium leading-snug text-[#818CF8]">
-              {data.suggested_response}
-            </p>
-          </section>
+        <section className="mt-3 rounded-xl border border-border bg-surface px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Suggested response
+          </p>
+          <p className="mt-1.5 text-sm leading-snug text-foreground/85">{suggestedResponse}</p>
+        </section>
 
-          <section className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[#64748B]">
-              PREGUNTA RECOMENDADA
-            </p>
-            <p className="mt-1.5 line-clamp-2 text-sm italic leading-snug text-[#94A3B8]">
-              {data.recommended_question}
-            </p>
-          </section>
-        </div>
+        <section className="mt-3 rounded-xl border border-border bg-surface px-3 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Recommended question
+          </p>
+          <p className="mt-1.5 text-sm italic leading-snug text-muted-foreground">{recommendedQuestion}</p>
+        </section>
 
-        {data.weaknesses.length > 0 && (
+        {weaknesses.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-1.5">
-            {data.weaknesses.map((w, idx) => (
+            {weaknesses.map((weakness, idx) => (
               <span
-                key={`${w}-${idx}`}
-                className="rounded-full bg-red-950 px-2 py-0.5 text-[11px] text-red-400"
+                key={`${weakness}-${idx}`}
+                className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive"
               >
-                {w}
+                {weakness}
               </span>
             ))}
           </div>
         )}
 
         {footerParts.length > 0 && (
-          <p className="mt-4 text-[10px] leading-relaxed text-[#475569]">
+          <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
             {footerParts.join(" · ")}
           </p>
         )}

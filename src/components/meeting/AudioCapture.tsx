@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMeetingStore } from "@/store/useMeetingStore";
 import type { BattlecardEvent, TranscriptEvent, WebSocketMessage } from "@/types";
@@ -12,32 +12,71 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.trim() ||
   (WS_URL ? WS_URL.replace(/^ws/i, "http").replace(/\/ws$/, "") : undefined);
 
-/** Logs detallados de audio/WS solo en dev (bundle de producción sin ruido) */
 const DEBUG_CAPTURE = process.env.NODE_ENV === "development";
 
-/** Prefer Opus in WebM — backend expects audio/webm chunks */
 function pickAudioMime(): string {
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-  ];
+  const candidates = ["audio/webm;codecs=opus", "audio/webm"];
   for (const m of candidates) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(m)) {
+    if (
+      typeof MediaRecorder !== "undefined" &&
+      MediaRecorder.isTypeSupported(m)
+    ) {
       return m;
     }
   }
   return "audio/webm";
 }
 
+function asText(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function normalizeBattlecardMessage(
+  msg: Record<string, unknown>
+): BattlecardEvent {
+  const rawData =
+    msg.data && typeof msg.data === "object"
+      ? (msg.data as Record<string, unknown>)
+      : msg;
+
+  const rawConfidence = typeof msg.confidence === "number" ? msg.confidence : 0;
+  const normalizedConfidence =
+    rawConfidence > 1 ? Math.min(rawConfidence / 100, 1) : rawConfidence;
+
+  return {
+    type: "battlecard",
+    id: typeof msg.id === "string" ? msg.id : undefined,
+    competitor: asText(msg.competitor, "Competitor"),
+    confidence: normalizedConfidence,
+    timestamp: typeof msg.timestamp === "number" ? msg.timestamp : Date.now(),
+    client_context:
+      msg.client_context && typeof msg.client_context === "object"
+        ? (msg.client_context as BattlecardEvent["client_context"])
+        : null,
+    data: {
+      key_differentiator: asText(
+        rawData.key_differentiator ?? rawData.differentiator
+      ),
+      suggested_response: asText(
+        rawData.suggested_response ?? rawData.response ?? rawData.talk_track
+      ),
+      recommended_question: asText(
+        rawData.recommended_question ?? rawData.question
+      ),
+      weaknesses: asStringList(rawData.weaknesses ?? rawData.risks),
+    },
+  };
+}
+
 function parseServerMessage(raw: string): WebSocketMessage | null {
   try {
     const msg = JSON.parse(raw) as Record<string, unknown>;
     if (msg.type === "battlecard") {
-      const b = msg as unknown as BattlecardEvent;
-      return {
-        ...b,
-        timestamp: b.timestamp ?? Date.now(),
-      };
+      return normalizeBattlecardMessage(msg);
     }
     if (msg.type === "transcript") {
       const t = msg as unknown as TranscriptEvent;
@@ -73,7 +112,6 @@ export function AudioCapture() {
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  /** Mic opcional para mezclar con audio de pantalla vía AudioContext */
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const captureMimeRef = useRef<string>("audio/webm");
@@ -120,16 +158,16 @@ export function AudioCapture() {
   const connectSocket = useCallback(() => {
     if (!WS_URL) {
       console.warn(
-        "[Close Pilot][WS] connectSocket: condición no cumplida → WS_URL es falsy.",
+        "[Close Pilot][WS] connectSocket: condicion no cumplida -> WS_URL es falsy.",
         "Valor actual WS_URL:",
         WS_URL,
         "| process.env.NEXT_PUBLIC_WS_URL (raw):",
-        process.env.NEXT_PUBLIC_WS_URL,
+        process.env.NEXT_PUBLIC_WS_URL
       );
       return null;
     }
     if (DEBUG_CAPTURE) {
-      console.info("[Close Pilot][WS][debug] new WebSocket →", WS_URL);
+      console.info("[Close Pilot][WS][debug] new WebSocket ->", WS_URL);
     }
     const ws = new WebSocket(WS_URL);
     socketRef.current = ws;
@@ -160,7 +198,7 @@ export function AudioCapture() {
 
     ws.onerror = (ev: Event) => {
       const sock = ev.target instanceof WebSocket ? ev.target : null;
-      console.error("[Close Pilot][WS] onerror — evento completo:", {
+      console.error("[Close Pilot][WS] onerror - evento completo:", {
         type: ev.type,
         timeStamp: ev.timeStamp,
         url: sock?.url,
@@ -176,7 +214,8 @@ export function AudioCapture() {
         console.log("[Close Pilot][WS][debug] mensaje entrante:", {
           dataType: typeof d,
           stringPreview: typeof d === "string" ? d.slice(0, 320) : undefined,
-          blobSize: typeof Blob !== "undefined" && d instanceof Blob ? d.size : undefined,
+          blobSize:
+            typeof Blob !== "undefined" && d instanceof Blob ? d.size : undefined,
         });
       }
 
@@ -188,21 +227,26 @@ export function AudioCapture() {
         if (DEBUG_CAPTURE) {
           try {
             const obj = JSON.parse(event.data) as Record<string, unknown>;
-            console.warn("[Close Pilot][WS][debug] JSON sin dispatch (type?):", obj?.type, event.data.slice(0, 200));
+            console.warn(
+              "[Close Pilot][WS][debug] JSON sin dispatch (type?):",
+              obj?.type,
+              event.data.slice(0, 200)
+            );
           } catch {
-            console.warn("[Close Pilot][WS][debug] payload no es JSON:", event.data.slice(0, 200));
+            console.warn(
+              "[Close Pilot][WS][debug] payload no es JSON:",
+              event.data.slice(0, 200)
+            );
           }
         }
         return;
       }
-      if (DEBUG_CAPTURE) {
-        if (parsed.type === "transcript") {
-          console.info("[Close Pilot][WS][debug] → addTranscript", {
-            id: parsed.id,
-            isPartial: parsed.isPartial,
-            textPreview: parsed.text.slice(0, 120),
-          });
-        }
+      if (DEBUG_CAPTURE && parsed.type === "transcript") {
+        console.info("[Close Pilot][WS][debug] -> addTranscript", {
+          id: parsed.id,
+          isPartial: parsed.isPartial,
+          textPreview: parsed.text.slice(0, 120),
+        });
       }
       if (parsed.type === "transcript") {
         addTranscript(parsed);
@@ -212,7 +256,7 @@ export function AudioCapture() {
           id: `${parsed.competitor}-${Date.now()}`,
         };
         if (DEBUG_CAPTURE) {
-          console.info("[Close Pilot][WS][debug] → addBattlecard", {
+          console.info("[Close Pilot][WS][debug] -> addBattlecard", {
             id: newCard.id,
             competitor: newCard.competitor,
           });
@@ -226,18 +270,15 @@ export function AudioCapture() {
     return ws;
   }, [addBattlecard, addTranscript, setActiveClient, setIsConnected]);
 
-  const sendClientSelection = useCallback(
-    (clientId: string | null) => {
-      const ws = socketRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      if (clientId) {
-        ws.send(JSON.stringify({ cmd: "set_client", client_id: clientId }));
-      } else {
-        ws.send(JSON.stringify({ cmd: "clear_client" }));
-      }
-    },
-    [],
-  );
+  const sendClientSelection = useCallback((clientId: string | null) => {
+    const ws = socketRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (clientId) {
+      ws.send(JSON.stringify({ cmd: "set_client", client_id: clientId }));
+    } else {
+      ws.send(JSON.stringify({ cmd: "clear_client" }));
+    }
+  }, []);
 
   const startCapture = useCallback(async () => {
     if (isRecording) return;
@@ -257,8 +298,8 @@ export function AudioCapture() {
       if (audioTracks.length === 0) {
         if (DEBUG_CAPTURE) {
           console.warn(
-            "[Close Pilot][capture][debug] Sin pistas de audio (marca «Compartir audio» en el diálogo del navegador).",
-            { videoTracks: stream.getVideoTracks().length },
+            "[Close Pilot][capture][debug] Sin pistas de audio (marca 'Compartir audio' en el dialogo del navegador).",
+            { videoTracks: stream.getVideoTracks().length }
           );
         }
         stream.getTracks().forEach((t) => t.stop());
@@ -271,7 +312,10 @@ export function AudioCapture() {
 
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         if (DEBUG_CAPTURE) {
-          console.warn("[Close Pilot][capture][debug] MediaRecorder no soporta mimeType:", mimeType);
+          console.warn(
+            "[Close Pilot][capture][debug] MediaRecorder no soporta mimeType:",
+            mimeType
+          );
         }
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -291,11 +335,11 @@ export function AudioCapture() {
         const s = socketRef.current;
         if (!s) {
           console.warn(
-            "[Close Pilot][WS] startCapture: condición no cumplida → connectSocket no dejó socket en ref.",
+            "[Close Pilot][WS] startCapture: condicion no cumplida -> connectSocket no dejo socket en ref.",
             "WS_URL era truthy:",
             WS_URL,
             "| socketRef.current:",
-            s,
+            s
           );
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
@@ -329,9 +373,9 @@ export function AudioCapture() {
           });
         } catch {
           console.warn(
-            "[Close Pilot][WS] startCapture: espera de apertura WebSocket falló (timeout o error antes de open).",
+            "[Close Pilot][WS] startCapture: espera de apertura WebSocket fallo.",
             "Estado socket:",
-            s.readyState,
+            s.readyState
           );
           stream.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
@@ -340,11 +384,11 @@ export function AudioCapture() {
         }
       } else {
         console.warn(
-          "[Close Pilot][WS] startCapture: condición no cumplida → no se llama connectSocket / new WebSocket.",
+          "[Close Pilot][WS] startCapture: condicion no cumplida -> no se llama connectSocket / new WebSocket.",
           "WS_URL es falsy. Valor:",
           WS_URL,
           "| process.env.NEXT_PUBLIC_WS_URL (raw):",
-          process.env.NEXT_PUBLIC_WS_URL,
+          process.env.NEXT_PUBLIC_WS_URL
         );
       }
 
@@ -356,20 +400,25 @@ export function AudioCapture() {
         });
         micStreamRef.current = micStream;
         console.info(
-          "[Close Pilot][capture] Micrófono: capturado (se mezcla con audio de pantalla)",
+          "[Close Pilot][capture] Microfono: capturado (se mezcla con audio de pantalla)"
         );
       } catch {
         micStream = null;
         micStreamRef.current = null;
         console.info(
-          "[Close Pilot][capture] Micrófono: no capturado — continuando solo con audio de pantalla",
+          "[Close Pilot][capture] Microfono: no capturado - continuando solo con audio de pantalla"
         );
       }
 
-      const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!AudioCtx) {
         if (DEBUG_CAPTURE) {
-          console.warn("[Close Pilot][capture][debug] AudioContext no disponible en este navegador");
+          console.warn(
+            "[Close Pilot][capture][debug] AudioContext no disponible en este navegador"
+          );
         }
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -415,7 +464,10 @@ export function AudioCapture() {
 
         if (e.data.size === 0) {
           if (DEBUG_CAPTURE) {
-            console.warn("[Close Pilot][audio][debug] chunk vacío (omitido)", { seq, readyState: rs });
+            console.warn("[Close Pilot][audio][debug] chunk vacio (omitido)", {
+              seq,
+              readyState: rs,
+            });
           }
           return;
         }
@@ -430,15 +482,17 @@ export function AudioCapture() {
           }
           ws.send(e.data);
         } else if (DEBUG_CAPTURE) {
-          console.warn("[Close Pilot][audio][debug] chunk NO enviado — socket no OPEN", {
-            seq,
-            bytes: e.data.size,
-            readyState: rs,
-          });
+          console.warn(
+            "[Close Pilot][audio][debug] chunk NO enviado - socket no OPEN",
+            {
+              seq,
+              bytes: e.data.size,
+              readyState: rs,
+            }
+          );
         }
       };
 
-      /** 1s timeslice → discrete audio/webm blobs for the backend pipeline */
       recorder.start(1000);
       setIsRecording(true);
       if (!WS_URL) {
@@ -447,15 +501,17 @@ export function AudioCapture() {
 
       if (DEBUG_CAPTURE) {
         console.info(
-          "[Close Pilot][capture][debug] MediaRecorder.start(1000ms) —",
-          "fuente: stream mezclado (pantalla + mic si aplica) —",
+          "[Close Pilot][capture][debug] MediaRecorder.start(1000ms) - fuente: stream mezclado (pantalla + mic si aplica) -",
           captureMimeRef.current,
-          "→ WebSocket",
+          "-> WebSocket"
         );
       }
     } catch (err) {
       if (DEBUG_CAPTURE) {
-        console.warn("[Close Pilot][capture][debug] fallo getDisplayMedia o setup:", err);
+        console.warn(
+          "[Close Pilot][capture][debug] fallo getDisplayMedia o setup:",
+          err
+        );
       }
       stopCapture();
     }
@@ -482,8 +538,8 @@ export function AudioCapture() {
     };
   }, [stopCapture]);
 
-  const clientName = activeClient?.name ?? "—";
-  const industry = activeClient?.industry ?? "Sin contexto activo";
+  const clientName = activeClient?.name ?? "No client selected";
+  const industry = activeClient?.industry ?? "No active context";
 
   return (
     <motion.header
@@ -491,66 +547,80 @@ export function AudioCapture() {
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-3.5 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#111827]/90 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]"
+      className="rounded-2xl border border-border bg-card p-5 shadow-sm"
     >
-      <div className="min-w-0 flex-1 flex items-start gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-[#F1F5F9] truncate tracking-tight">{clientName}</p>
-          <p className="text-xs text-[#64748B] truncate mt-0.5">{industry}</p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Live call
+          </div>
+          <div className="mt-1 text-lg font-semibold">{clientName}</div>
+          <p className="mt-1 text-sm text-muted-foreground">{industry}</p>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-        <div className="flex items-center gap-2 text-xs text-[#64748B]">
-          <span className="relative flex h-2 w-2">
-            {isConnected ? (
+        <div className="hidden max-w-md flex-1 lg:block">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              placeholder="Search transcripts, accounts, battlecards..."
+              className="h-10 w-full rounded-full border border-transparent bg-secondary pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-border focus:outline-none"
+              readOnly
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-2 text-xs text-muted-foreground">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isConnected ? "bg-success animate-pulse-dot" : "bg-muted-foreground"
+              }`}
+            />
+            {isConnected ? "Connected" : "No connection"}
+          </span>
+
+          <button
+            type="button"
+            onClick={toggleMic}
+            className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-medium transition ${
+              isRecording
+                ? "bg-foreground text-background hover:bg-foreground/90"
+                : "border border-border bg-card text-foreground hover:bg-accent"
+            }`}
+            title={
+              WS_URL
+                ? isRecording
+                  ? "Stop capture"
+                  : "Screen + microphone mixed together (audio/webm to server)"
+                : "Set NEXT_PUBLIC_WS_URL to stream audio to the backend"
+            }
+            aria-pressed={isRecording}
+          >
+            {isRecording ? (
               <>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-35" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
+                <div className="flex h-6 items-end justify-center gap-0.5 px-0.5" aria-hidden>
+                  {[12, 16, 13, 18, 14].map((h, i) => (
+                    <span
+                      key={i}
+                      className="cp-wave-bar w-[3px] rounded-full bg-success"
+                      style={{ height: h }}
+                    />
+                  ))}
+                </div>
+                <Mic className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                <span>Live</span>
               </>
             ) : (
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#64748B]/80" />
+              <>
+                <MicOff className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                <span>Capture audio</span>
+              </>
             )}
-          </span>
-          <span className="hidden sm:inline">{isConnected ? "Conectado" : "Sin conexión"}</span>
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={toggleMic}
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-[#64748B] hover:text-[#F1F5F9] hover:bg-[rgba(255,255,255,0.06)] transition-colors border border-transparent hover:border-[rgba(255,255,255,0.06)]"
-          title={
-            WS_URL
-              ? isRecording
-                ? "Detener captura"
-                : "Pantalla + micrófono mezclados (audio/webm al servidor)"
-              : "Define NEXT_PUBLIC_WS_URL para enviar audio al backend"
-          }
-          aria-pressed={isRecording}
-        >
-          {isRecording ? (
-            <>
-              <div className="flex h-6 items-end justify-center gap-0.5 px-0.5" aria-hidden>
-                {[12, 16, 13, 18, 14].map((h, i) => (
-                  <span
-                    key={i}
-                    className="cp-wave-bar w-[3px] rounded-full bg-[#10B981]"
-                    style={{ height: h }}
-                  />
-                ))}
-              </div>
-              <Mic className="w-[18px] h-[18px] text-[#10B981]" strokeWidth={1.75} />
-              <span className="text-xs font-medium text-[#10B981] hidden sm:inline">En vivo</span>
-            </>
-          ) : (
-            <>
-              <MicOff className="w-[18px] h-[18px]" strokeWidth={1.75} />
-              <span className="text-xs font-medium hidden sm:inline">Capturar audio</span>
-            </>
-          )}
-        </button>
       </div>
-      <div className="w-full sm:w-[360px]">
+
+      <div className="mt-4 w-full lg:max-w-md">
         <ClientSelector
           apiBaseUrl={API_URL}
           selectedClient={activeClient}

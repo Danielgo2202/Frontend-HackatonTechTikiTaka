@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Instrument_Serif, Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 const geistMono = Geist_Mono({
@@ -14,9 +21,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Close Pilot — Copiloto de reuniones",
+  title: "Close Pilot - Copiloto de reuniones",
   description:
-    "Transcripción en vivo, competidores y battlecards para equipos comerciales.",
+    "Transcripcion en vivo, competidores y battlecards para equipos comerciales.",
 };
 
 export default function RootLayout({
@@ -30,31 +37,33 @@ export default function RootLayout({
       signUpUrl="/sign-up"
       appearance={{
         variables: {
-          colorPrimary: "#6366f1",
-          colorBackground: "#0a0e1a",
-          colorInputBackground: "rgba(17, 24, 39, 0.65)",
-          colorText: "#f1f5f9",
-          colorTextSecondary: "#94a3b8",
-          borderRadius: "0.75rem",
+          colorPrimary: "#26231f",
+          colorBackground: "#f7f3ee",
+          colorInputBackground: "#ffffff",
+          colorText: "#26231f",
+          colorTextSecondary: "#7d7469",
+          borderRadius: "1rem",
         },
         elements: {
           formButtonPrimary:
-            "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/20",
-          card: "bg-slate-900/85 backdrop-blur-xl shadow-2xl border border-white/[0.08]",
-          headerTitle: "text-white",
-          headerSubtitle: "text-slate-400",
+            "bg-neutral-900 hover:bg-neutral-800 text-white shadow-lg",
+          card: "bg-white shadow-xl border border-stone-200 rounded-[1.5rem]",
+          headerTitle: "text-neutral-900",
+          headerSubtitle: "text-stone-500",
           socialButtonsBlockButton:
-            "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white",
-          dividerLine: "bg-white/10",
-          formFieldLabel: "text-slate-300",
-          identityPreviewText: "text-slate-200",
-          footerActionLink: "text-indigo-300 hover:text-indigo-200",
+            "border-stone-200 bg-stone-50 hover:bg-stone-100 text-neutral-900",
+          dividerLine: "bg-stone-200",
+          formFieldLabel: "text-stone-700",
+          formFieldInput:
+            "border-stone-200 bg-white text-neutral-900 placeholder:text-stone-400",
+          identityPreviewText: "text-neutral-900",
+          footerActionLink: "text-neutral-900 hover:text-neutral-700",
         },
       }}
     >
       <html
         lang="es"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        className={`${inter.variable} ${instrumentSerif.variable} ${geistMono.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">{children}</body>
       </html>

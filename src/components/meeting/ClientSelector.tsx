@@ -64,7 +64,7 @@ export function ClientSelector({
         setHighlightIndex(0);
       } catch {
         setItems([]);
-        setError("No se pudo consultar clientes. Revisa backend/Supabase.");
+        setError("Could not load clients. Check backend/Supabase.");
       } finally {
         setLoading(false);
       }
@@ -76,12 +76,13 @@ export function ClientSelector({
   }, [endpoint, query]);
 
   const showList = open && query.trim().length > 0;
-  const inputValue = query.length === 0 && selectedClient?.name ? selectedClient.name : query;
+  const inputValue =
+    query.length === 0 && selectedClient?.name ? selectedClient.name : query;
 
   return (
     <div ref={wrapperRef} className="relative">
-      <div className="flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0B1220]/90 px-3 py-2">
-        <Search className="h-4 w-4 text-[#64748B]" />
+      <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
         <input
           value={inputValue}
           onChange={(e) => {
@@ -111,8 +112,8 @@ export function ClientSelector({
               setOpen(false);
             }
           }}
-          placeholder="Buscar cliente..."
-          className="w-full bg-transparent text-sm text-[#E2E8F0] placeholder:text-[#64748B] outline-none"
+          placeholder="Search client..."
+          className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
         />
         {selectedClient && (
           <button
@@ -123,9 +124,9 @@ export function ClientSelector({
               setItems([]);
               setOpen(false);
             }}
-            className="rounded-md p-1 text-[#64748B] hover:text-[#E2E8F0] hover:bg-[rgba(255,255,255,0.06)]"
-            title="Quitar cliente"
-            aria-label="Quitar cliente"
+            className="rounded-full p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            title="Remove client"
+            aria-label="Remove client"
           >
             <X className="h-4 w-4" />
           </button>
@@ -133,14 +134,16 @@ export function ClientSelector({
       </div>
 
       {showList && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0B1220]/95 shadow-[0_20px_40px_rgba(0,0,0,0.45)]">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-premium">
           {loading ? (
-            <p className="px-3 py-2.5 text-xs text-[#64748B]">Buscando...</p>
+            <p className="px-4 py-3 text-xs text-muted-foreground">Searching...</p>
           ) : error ? (
-            <p className="px-3 py-2.5 text-xs text-[#FCA5A5]">{error}</p>
+            <p className="px-4 py-3 text-xs text-destructive">{error}</p>
           ) : items.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-[#64748B]">
-              {touched ? "No clients found" : "Empieza a escribir para buscar clientes"}
+            <p className="px-4 py-3 text-xs text-muted-foreground">
+              {touched
+                ? "No clients found"
+                : "Start typing to search clients"}
             </p>
           ) : (
             <ul className="max-h-64 overflow-auto py-1">
@@ -153,14 +156,14 @@ export function ClientSelector({
                       setQuery(item.name ?? "");
                       setOpen(false);
                     }}
-                    className={`w-full px-3 py-2 text-left transition-colors ${
-                      idx === highlightIndex
-                        ? "bg-[rgba(99,102,241,0.14)]"
-                        : "hover:bg-[rgba(255,255,255,0.04)]"
+                    className={`w-full px-4 py-3 text-left transition-colors ${
+                      idx === highlightIndex ? "bg-accent" : "hover:bg-surface"
                     }`}
                   >
-                    <p className="text-sm text-[#E2E8F0] truncate">{item.name}</p>
-                    <p className="text-xs text-[#64748B] truncate">{item.industry || "Sin industria"}</p>
+                    <p className="truncate text-sm text-foreground">{item.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.industry || "No industry"}
+                    </p>
                   </button>
                 </li>
               ))}

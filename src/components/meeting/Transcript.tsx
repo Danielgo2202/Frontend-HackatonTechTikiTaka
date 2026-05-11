@@ -18,7 +18,7 @@ function highlightText(text: string, term: string | null) {
   return (
     <>
       {before}
-      <span className="text-[#818CF8] font-medium">{match}</span>
+      <span className="rounded bg-warning/25 px-1 text-foreground">{match}</span>
       {after}
     </>
   );
@@ -44,7 +44,10 @@ export function Transcript() {
   }, [transcripts]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [lines]);
 
   const showListeningHint =
@@ -56,66 +59,82 @@ export function Transcript() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col min-h-0 flex-1 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#111827]/80 backdrop-blur-sm shadow-[0_24px_48px_rgba(0,0,0,0.35)] overflow-hidden"
+      className="flex h-[calc(100dvh-190px)] min-h-[520px] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
-      <div className="shrink-0 px-5 py-3.5 flex items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div>
-          <p className="text-[13px] font-medium text-[#F1F5F9] tracking-tight">Transcripción</p>
-          <p className="text-[11px] text-[#64748B] mt-0.5">Actualización en tiempo casi real</p>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Realtime transcript
+          </div>
+          <div className="mt-0.5 text-base font-semibold">
+            Active call · live sales context
+          </div>
         </div>
-        {isRecording && (
-          <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#10B981] tabular-nums">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-35" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
-            </span>
-            Escuchando
-          </span>
-        )}
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-dot" />
+          {isRecording ? "streaming" : "idle"}
+        </span>
       </div>
 
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-[min(52vh,560px)] max-h-[min(62vh,640px)] overflow-y-auto px-5 py-5"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
         {showListeningHint ? (
-          <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center px-6">
-            <p className="text-sm text-[#64748B] cp-dots max-w-sm leading-relaxed">
-              Esperando el audio de la llamada
+          <div className="flex h-full min-h-[200px] flex-col items-center justify-center px-6 text-center">
+            <p className="cp-dots max-w-sm text-sm leading-relaxed text-muted-foreground">
+              Waiting for call audio
               <span>.</span>
               <span>.</span>
               <span>.</span>
             </p>
-            <p className="text-xs text-[#64748B]/80 mt-3 max-w-xs leading-relaxed">
-              Comparte la pestaña de la reunión con audio para ver el texto aquí.
+            <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground/80">
+              Share the meeting tab with audio to see the transcript here.
             </p>
           </div>
         ) : lines.length === 0 ? (
-          <div className="h-full min-h-[200px] flex items-center justify-center">
-            <p className="text-sm text-[#64748B] text-center max-w-sm leading-relaxed">
-              Inicia la captura de audio para transcribir la conversación en esta columna.
+          <div className="flex h-full min-h-[200px] items-center justify-center">
+            <p className="max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
+              Start audio capture to transcribe the conversation in this column.
             </p>
           </div>
         ) : (
-          <div className="space-y-6 max-w-[52rem]">
+          <div className="space-y-5">
             {lines.map((t, i) => (
-              <div
-                key={`${t.id}-${i}`}
-                className={cn(
-                  "pl-4 border-l-2 transition-colors",
-                  t.isPartial
-                    ? "border-[#64748B]/40 opacity-80"
-                    : "border-[rgba(99,102,241,0.35)]"
-                )}
-              >
-                <p
-                  className={cn(
-                    "text-[15px] leading-[1.65] text-[#CBD5E1] tracking-[0.01em]",
-                    t.isPartial && "italic text-[#94A3B8]"
-                  )}
-                >
-                  {highlightText(t.text, competitorPreview)}
-                </p>
+              <div key={`${t.id}-${i}`} className="flex gap-3">
+                <div className="w-9 shrink-0">
+                  <div
+                    className={cn(
+                      "grid h-9 w-9 place-items-center rounded-full text-[11px] font-semibold text-white",
+                      t.isPartial ? "bg-muted-foreground" : "bg-foreground"
+                    )}
+                  >
+                    {t.isPartial ? "AI" : "CL"}
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold">
+                      {t.isPartial ? "Listening" : "Transcript"}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {new Date(t.timestamp).toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    {t.isPartial && (
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        partial
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-1 text-[15px] leading-relaxed text-foreground/90",
+                      t.isPartial && "italic text-muted-foreground"
+                    )}
+                  >
+                    {highlightText(t.text, competitorPreview)}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
